@@ -1,0 +1,19 @@
+{
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	],
+	"settings":
+	{
+		"tab_size": 8
+	},
+	"build_systems":
+	[
+		{
+			"name": "Go",
+			"shell_cmd": "go run %s"
+		}
+	]
+}
