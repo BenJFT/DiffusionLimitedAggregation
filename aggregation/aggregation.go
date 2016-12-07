@@ -10,7 +10,7 @@ const (
 )
 
 type Point struct {
-	x, y int64
+	X, Y int64
 }
 
 type Aggregator struct {
@@ -26,37 +26,50 @@ type Aggregator struct {
 }
 
 func (point *Point) updateRadius(agg *Aggregator) {
-	agg.pointRadius = math.Sqrt(float64(point.x*point.x+point.y*point.y) + 0.5)
+	agg.pointRadius = math.Sqrt(float64(point.X *point.X +point.Y *point.Y)) + 0.5
 }
 
 func (point *Point) moveToBorder(agg *Aggregator, rng *rand.Rand) {
 	agg.angle = 2 * math.Pi * rng.Float64()
-	point.x = int64(math.Sin(agg.angle) * agg.borderRadius)
-	point.y = int64(math.Cos(agg.angle) * agg.borderRadius)
+	point.X = int64(math.Sin(agg.angle) * agg.borderRadius)
+	point.Y = int64(math.Cos(agg.angle) * agg.borderRadius)
 	point.updateRadius(agg)
 }
 
-func (point *Point) walk(agg *Aggregator, rng *rand.Rand) {
+func (point *Point) walk(state map[Point]int64, agg *Aggregator, rng *rand.Rand) {
 	switch rng.Intn(4) {
 	case 0:
-		point.x++
-		if point.x > agg.intBorder {
-			point.x -= 2 * agg.intBorder
+		point.X++
+		if _, ok := state[*point]; ok {
+			point.X--
 		}
+		if point.X > agg.intBorder {
+			point.X -= 2 * agg.intBorder
+		}
+
 	case 1:
-		point.x--
-		if point.x < -agg.intBorder {
-			point.x += 2 * agg.intBorder
+		point.X--
+		if _, ok := state[*point]; ok {
+			point.X++
+		}
+		if point.X < -agg.intBorder {
+			point.X += 2 * agg.intBorder
 		}
 	case 2:
-		point.y++
-		if point.y > agg.intBorder {
-			point.y -= 2 * agg.intBorder
+		point.Y++
+		if _, ok := state[*point]; ok {
+			point.Y--
+		}
+		if point.Y > agg.intBorder {
+			point.Y -= 2 * agg.intBorder
 		}
 	case 3:
-		point.y--
-		if point.y < -agg.intBorder {
-			point.y += 2 * agg.intBorder
+		point.Y--
+		if _, ok := state[*point]; ok {
+			point.Y++
+		}
+		if point.Y < -agg.intBorder {
+			point.Y += 2 * agg.intBorder
 		}
 	}
 	point.updateRadius(agg)
@@ -64,28 +77,28 @@ func (point *Point) walk(agg *Aggregator, rng *rand.Rand) {
 
 func (point *Point) upIn(state map[Point]int64, agg *Aggregator) bool {
 	agg.tempPoint = *point
-	agg.tempPoint.y++
+	agg.tempPoint.Y++
 	_, ok := state[agg.tempPoint]
 	return ok
 }
 
 func (point *Point) downIn(state map[Point]int64, agg *Aggregator) bool {
 	agg.tempPoint = *point
-	agg.tempPoint.y--
+	agg.tempPoint.Y--
 	_, ok := state[agg.tempPoint]
 	return ok
 }
 
 func (point *Point) rightIn(state map[Point]int64, agg *Aggregator) bool {
 	agg.tempPoint = *point
-	agg.tempPoint.y++
+	agg.tempPoint.X++
 	_, ok := state[agg.tempPoint]
 	return ok
 }
 
 func (point *Point) leftIn(state map[Point]int64, agg *Aggregator) bool {
 	agg.tempPoint = *point
-	agg.tempPoint.y--
+	agg.tempPoint.X--
 	_, ok := state[agg.tempPoint]
 	return ok
 }
@@ -101,17 +114,19 @@ func (agg *Aggregator) setRadius() {
 	agg.intBorder = int64(agg.borderRadius)
 }
 
-func (agg *Aggregator) Aggregate(n int64, rng *rand.Rand) map[Point]int64 {
+func (agg *Aggregator) Aggregate(n int64, sticking float64, rng *rand.Rand) map[Point]int64 {
 	state := make(map[Point]int64, n) //prealocate memory
 
 	point := &agg.currPoint //reference point in cache to avoid gc
 
 	state[*point] = 0
+	point.updateRadius(agg)
+	agg.setRadius()
 
-	for i := int64(0); i < n; i++ {
+	for i := int64(1); i < n; i++ {
 		point.moveToBorder(agg, rng)
-		for !point.hasNeighborIn(state, agg) {
-			point.walk(agg, rng)
+		for !point.hasNeighborIn(state, agg) || rng.Float64() > sticking {
+			point.walk(state, agg, rng)
 		}
 		if agg.pointRadius > agg.radius {
 			agg.setRadius()
