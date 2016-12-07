@@ -101,7 +101,7 @@ func (agg *Aggregator) setRadius() {
 	agg.intBorder = int64(agg.borderRadius)
 }
 
-func (agg *Aggregator) aggregate(n int64, rng *rand.Rand) map[Point]int64 {
+func (agg *Aggregator) Aggregate(n int64, rng *rand.Rand) map[Point]int64 {
 	state := make(map[Point]int64, n) //prealocate memory
 
 	point := &agg.currPoint //reference point in cache to avoid gc
