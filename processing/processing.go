@@ -160,7 +160,7 @@ func dimension(state []agg.Point, r int64) plotter.XYs {
 		sum := 0
 		for _, row := range boxs {
 			for _, box := range row {
-				if /*box < w*w && */box != 0{
+				if box < w*w && box != 0{
 					sum += 1
 				}
 			}
