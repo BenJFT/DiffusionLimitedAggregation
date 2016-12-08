@@ -166,7 +166,7 @@ func dimension(state []agg.Point, r int64) plotter.XYs {
 			}
 		}
 
-		xys[i-1].X = float64(n)
+		xys[i-1].X = float64(w)
 		xys[i-1].Y = float64(sum)
 
 	}
