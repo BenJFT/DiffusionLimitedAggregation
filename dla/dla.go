@@ -1,200 +1,86 @@
 package main
 
 import (
-	"fmt"
-	"math"
-	"math/rand"
 	"os"
+	"fmt"
+	"flag"
 	"strings"
 
-	agg "github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 	"github.com/Benjft/DiffusionLimitedAggregation/tools"
-
-	"github.com/gonum/plot"
-	"github.com/gonum/plot/plotter"
-	"github.com/gonum/plot/vg"
-	"github.com/gonum/plot/vg/draw"
-
-	"github.com/skratchdot/open-golang/open"
+	agg "github.com/Benjft/DiffusionLimitedAggregation/aggregation"
+	proc "github.com/Benjft/DiffusionLimitedAggregation/processing"
 )
 
-var lastStates [][]agg.Point
+var (
+	runSeed int64
+	runN int64
+	runRuns int64
+	runSticking float64
 
-func runAggregation(seed, n, runs int64, sticking float64) {
-	rand.Seed(seed)
+	runStates [][]agg.Point
+)
 
-	chans := make([]chan map[agg.Point]int64, runs)
-	for i := int64(0); i < runs; i++ {
-		a := &agg.Aggregator{}
-		c := make(chan map[agg.Point]int64)
-		go func() {
-			rng := rand.New(rand.NewSource(rand.Int63()))
-			c <- a.Aggregate(n, sticking, rng)
-		} ()
-		chans[i] = c
+func handleRun(args []string) {
+	flags := flag.NewFlagSet("run", flag.ContinueOnError)
+
+	flags.Int64Var(&runSeed, "seed", 1, "an integer of at least 1")
+	flags.Int64Var(&runN, "num", 1000, "an integer of at least 2")
+	flags.Int64Var(&runRuns, "runs", 1, "an integer of at least 1")
+	flags.Float64Var(&runSticking, "sticking", 1, "a float satifying 0 < f <= 1")
+
+	err := flags.Parse(args)
+	if err == nil {
+		fmt.Printf("Seed = %d\n Num = %d\n Runs = %d\n Sticking = %f\n", runSeed, runN, runRuns, runSticking)
+		fmt.Println("Running, please wait")
+		runStates = proc.Run(runSeed, runN, runRuns, runSticking)
+		fmt.Println("Done")
 	}
 
-	lastStates = make([][]agg.Point, runs)
-	for i, c := range chans {
-		arr := make([]agg.Point, n)
-		m := <-c
-		for k, v := range m {
-			arr[v] = k
-		}
-		lastStates[i] = arr
-		if i64 :=  int64(len(arr)); i64 < n {
-			fmt.Println("MISSING", string(n-i64), "POINTS!")
-		}
+}
+
+func handleDraw(args []string) {
+	flags := flag.NewFlagSet("plot", flag.ContinueOnError)
+
+	var title, format string
+	var display bool
+
+	title = fmt.Sprintf("aggregate-seed%d-n%d-sticking%f", runSeed, runN, runSticking)
+
+	flags.StringVar(&title, "title", title, "the header for the plot and the name of the file")
+	flags.StringVar(&format, "format", "svg", "the file type to output the plot as. (allowed svg, png, jpg, tif")
+	flags.BoolVar(&display, "display", true, "open the plot after saving. Opens in the befault web browser")
+
+	err := flags.Parse(args)
+	if err != nil {
+		return
+	} else if format != "svg" && format != "png" && format != "jpg" && format != "tif" {
+		flags.Usage()
+		return
+	}
+
+	for i, state := range runStates {
+		rTitle := fmt.Sprintf("%s-run%d", title, i)
+		fmt.Printf("title-%s  fmt-%s  disp-%t\n", rTitle, format, display)
+		proc.Draw(state, rTitle, format, display)
 	}
 }
 
-func processRun(args []string) {
-	var seed, n, runs int64
-	var sticking float64
-
-	if len(args) > 0 {
-		var argstr string = args[0]
-
-		for _, arg := range args[1:] {
-			argstr += " "
-			argstr += arg
-		}
-
-		argstr = strings.Replace(argstr, "=", " ", -1)
-		args = strings.Split(argstr, " ")
-
-		if len(args) > 6 {
-			fmt.Println("Too much input")
-			return
-		}
-
-		var key string = ""
-		for _, arg := range args {
-			switch key {
-			case "seed":
-				fmt.Sscanf(arg, "%d", &seed)
-				key = ""
-			case "n":
-				fmt.Sscanf(arg, "%d", &n)
-				key = ""
-			case "runs":
-				fmt.Sscanf(arg, "%d", &runs)
-				key = ""
-			case "sticking":
-				fmt.Sscanf(arg, "%f", &sticking)
-				key = ""
-			default:
-				switch arg {
-				case "seed": key = "seed"
-				case "n": key = "n"
-				case "runs": key = "runs"
-				case "sticking": key = "sticking"
-				default:
-					var num float64
-					_, err := fmt.Sscanf(arg, "%f", &num)
-					if err != nil {
-						fmt.Println(arg, "Not recognised as a key or value")
-						return
-					}
-					if seed == 0 {
-						seed = int64(num)
-					} else if n == 0 {
-						n = int64(num)
-					} else if sticking == 0 {
-						sticking = num
-					} else if runs == 0 {
-						runs = int64(num)
-					} else {
-						fmt.Println("Too much input")
-						return
-					}
-				}
-			}
-		}
-
-		if seed < 1 {
-			fmt.Println("Seed must be an int value of at least 1")
-			return
-		}
-		if n < 2 {
-			fmt.Println("N must be an int value of at least 2")
-			return
-		}
-		if runs < 1 {
-			fmt.Println("Runs must be an int value of at least 1")
-			return
-		}
-
-	} else {
-		fmt.Print("Seed = ")
-		if _, err := fmt.Scanf("%d\n", &seed); err != nil || seed < 1 {
-			fmt.Println("Seed must be an int value of at least 1")
-			return
-		}
-
-		fmt.Print("N = ")
-		if _, err := fmt.Scanf("%d\n", &n); err != nil || n < 2 {
-			fmt.Println("N must be an int value of at least 2")
-			return
-		}
-
-		fmt.Print("Sticking = ")
-		if _, err := fmt.Scanf("%f\n", &sticking); err != nil || sticking <= 0 {
-			fmt.Print("Sticking shouldbe a float latger than 0")
-			return
-		}
-
-		fmt.Print("Runs = ")
-		if _, err := fmt.Scanf("%d\n", &runs); err != nil || runs < 1 {
-			fmt.Println("Runs mis be an int value of at least 1")
-			return
-		}
-	}
-	fmt.Println("Running, please wait")
-	runAggregation(seed, n, runs, sticking)
-	fmt.Println("Done!")
+func handleDimension(args []string) {
+	a, b := proc.Dimension(runStates, "", "", true)
+	println(a, b)
 }
 
-func processPlot(args []string) {
-	if len(lastStates) > 0 {
-		state := lastStates[0]
-		xys := make(plotter.XYs, len(state))
-		for i, v := range state {
-			xys[i].X = float64(v.X)
-			xys[i].Y = float64(v.Y)
-		}
-
-		plt, _ := plot.New()
-		plt.Add(plotter.NewGrid())
-
-		s, _ := plotter.NewScatter(xys)
-		s.Shape = draw.PlusGlyph{}
-		plt.Add(s)
-
-		min := math.Min(plt.X.Min, plt.Y.Min)
-		max := math.Max(plt.X.Max, plt.Y.Max)
-
-		plt.X.Min = min
-		plt.Y.Min = min
-		plt.X.Max = max
-		plt.Y.Max = max
-
-		plt.Save(vg.Inch*10, vg.Inch*10, args[0])
-		open.Run(args[0])
-	}
-}
-
-func handle(str string) {
-	str = tools.SingleSpace(str)
-	strs := strings.Split(str, " ")
+func handle(strs []string) {
 	head := strs[0]
 	tail := strs[1:]
 
 	switch head {
 	case "run":
-		processRun(tail)
-	case "plot":
-		processPlot(tail)
+		handleRun(tail)
+	case "draw":
+		handleDraw(tail)
+	case "dimension":
+		handleDimension(tail)
 	default:
 		fmt.Println("Command not recognized")
 	}
@@ -204,7 +90,7 @@ func mainLoop() {
 	fmt.Print(">>")
 	for cmd := strings.ToLower(tools.ReadStrOrEmpty()); cmd != "quit"; cmd = strings.ToLower(tools.ReadStrOrEmpty()) {
 		if cmd != "" {
-			handle(cmd)
+			handle(strings.Split(tools.SingleSpace(cmd), " "))
 		}
 
 		fmt.Print(">>")
@@ -212,14 +98,10 @@ func mainLoop() {
 }
 
 func main() {
-	fmt.Println("Starting")
-
 	args := os.Args[1:]
 	if len(args) > 0 {
-		// TODO
+		handle(args)
 	} else {
 		mainLoop()
 	}
-
-	fmt.Println("Stopped")
 }

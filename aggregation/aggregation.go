@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	BORDER_SCALE float64 = 2
+	BORDER_SCALE float64 = 1.5
 )
 
 type Point struct {
@@ -125,7 +125,7 @@ func (agg *Aggregator) Aggregate(n int64, sticking float64, rng *rand.Rand) map[
 
 	for i := int64(1); i < n; i++ {
 		point.moveToBorder(agg, rng)
-		for !point.hasNeighborIn(state, agg) || rng.Float64() > sticking {
+		for !point.hasNeighborIn(state, agg) || sticking < rng.Float64() {
 			point.walk(state, agg, rng)
 		}
 		if agg.pointRadius > agg.radius {
