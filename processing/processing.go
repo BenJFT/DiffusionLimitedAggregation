@@ -117,7 +117,6 @@ func Dimension(states [][]agg.Point, title, format string, display bool) (float6
 				xys = append(xys, *xy)
 			}
 		}
-		//xys = append(xys, xyData...)
 	}
 
 	plt, err := plot.New()
@@ -130,11 +129,16 @@ func Dimension(states [][]agg.Point, title, format string, display bool) (float6
 	}
 
 	plt.Add(s)
-	plt.Save(vg.Inch*10, vg.Inch*10, "dims.svg")
-	open.Run("dims.svg")
+	plt.Title.Text = title
+	plt.X.Label.Text = "Log10 box width"
+	plt.Y.Label.Text = "log10 box count"
+
+	fileName := fmt.Sprintf("%s.%s", title, format)
+
+	plt.Save(vg.Inch*10, vg.Inch*10, fileName)
+	open.Run(fileName)
 
 	return tools.LeastSquares(xys)
-	//return 1, 2
 }
 
 func dimension(state []agg.Point, r int64) plotter.XYs {
@@ -168,8 +172,81 @@ func dimension(state []agg.Point, r int64) plotter.XYs {
 
 		xys[i-1].X = float64(w)
 		xys[i-1].Y = float64(sum)
-
 	}
 
 	return xys
+}
+
+func Density(states [][]agg.Point, title, format string, display bool) (float64, float64) {
+
+	var r2Max int64 = 0
+	for _, state := range states {
+		for _, point := range state {
+			if r2 := point.X*point.X + point.Y*point.Y; r2 > r2Max {
+				r2Max = r2
+			}
+		}
+	}
+
+	var r int64 = int64(math.Ceil(math.Sqrt(float64(r2Max))))
+	chans := make([]chan plotter.XYs, len(states))
+	for i, state := range states {
+		c := make(chan plotter.XYs)
+		go func() {
+			c <- dimension(state, r)
+		} ()
+		chans[i] = c
+	}
+
+	var xys plotter.XYs
+	for _, c := range chans {
+		xyData := <- c
+		for i := range xyData {
+			xy := &xyData[i]
+			xy.X = math.Log(xy.X)
+			xy.Y = math.Log(xy.Y)
+			if xy.X != math.Inf(+1) && xy.X != math.Inf(-1) && xy.Y != math.Inf(+1) && xy.Y != math.Inf(-1) {
+				xys = append(xys, *xy)
+			}
+		}
+	}
+
+	plt, err := plot.New()
+	if err != nil {
+		panic(err)
+	}
+	s, err := plotter.NewScatter(xys)
+	if err != nil {
+		panic(err)
+	}
+
+	plt.Add(s)
+	plt.Title.Text = title
+	plt.X.Label.Text = "Log10 r (lattica const.)"
+	plt.Y.Label.Text = "log10 C(r)"
+
+	fileName := fmt.Sprintf("%s.%s", title, format)
+
+	plt.Save(vg.Inch*10, vg.Inch*10, fileName)
+	open.Run(fileName)
+
+	return tools.LeastSquares(xys)
+}
+
+func density(state []agg.Point, r int64) plotter.XYs {
+
+	R := make(map[int64]int64)
+
+	for i, point1 := range state {
+		for _, point2 := range state[:i] {
+			dx := point1.X - point2.X
+			dy := point1.Y - point2.Y
+
+			d := math.Sqrt(float64(dx*dx+dy*dy))
+
+			R[int64(math.Ceil(d))] += 1
+		}
+	}
+
+	//TODO
 }
