@@ -8,6 +8,10 @@ import (
 	"github.com/gonum/plot/plotter"
 )
 
+type Point interface {
+	XY() (int64, int64)
+}
+
 var scanner *bufio.Scanner = bufio.NewScanner(os.Stdin)
 
 func SingleSpace(str string) string  {

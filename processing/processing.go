@@ -7,6 +7,7 @@ import (
 
 	agg "github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 	"github.com/Benjft/DiffusionLimitedAggregation/tools"
+	"github.com/Benjft/DiffusionLimitedAggregation/genagg"
 
 	"github.com/gonum/plot"
 	"github.com/gonum/plot/plotter"
@@ -16,13 +17,13 @@ import (
 	"github.com/skratchdot/open-golang/open"
 )
 
-func Run(seed, n, runs int64, sticking float64) [][]agg.Point {
+func Run(seed, n, runs int64, sticking float64) [][]tools.Point {
 	rand.Seed(seed)
 
-	chans := make([]chan map[agg.Point]int64, runs)
+	chans := make([]chan map[tools.Point]int64, runs)
 	for i := int64(0); i < runs; i++ {
 		a := &agg.Aggregator{}
-		c := make(chan map[agg.Point]int64)
+		c := make(chan map[tools.Point]int64)
 		go func() {
 			rng := rand.New(rand.NewSource(rand.Int63()))
 			c <- a.Aggregate(n, sticking, rng)
@@ -30,9 +31,9 @@ func Run(seed, n, runs int64, sticking float64) [][]agg.Point {
 		chans[i] = c
 	}
 
-	ret := make([][]agg.Point, runs)
+	ret := make([][]tools.Point, runs)
 	for i, c := range chans {
-		arr := make([]agg.Point, n)
+		arr := make([]tools.Point, n)
 		m := <-c
 		for k, v := range m {
 			arr[v] = k
@@ -46,13 +47,42 @@ func Run(seed, n, runs int64, sticking float64) [][]agg.Point {
 	return ret
 }
 
-func Draw(state []agg.Point, title, format string, display bool) {
+func Run2(seed, n, runs int64, sticking float64) [][]tools.Point {
+	rand.Seed(seed)
+
+	chans := make([]chan map[tools.Point]int64, runs)
+	for i := int64(0); i < runs; i++ {
+		c := make(chan map[tools.Point]int64)
+		go func() {
+			rng := rand.New(rand.NewSource(rand.Int63()))
+			c <- genagg.RunNew(n, sticking, rng)
+		} ()
+		chans[i] = c
+	}
+
+	ret := make([][]tools.Point, runs)
+	for i, c := range chans {
+		arr := make([]tools.Point, n)
+		m := <-c
+		for k, v := range m {
+			arr[v] = k
+		}
+		ret[i] = arr
+		if i64 :=  int64(len(arr)); i64 < n {
+			fmt.Println("MISSING", string(n-i64), "POINTS!")
+		}
+	}
+
+	return ret
+}
+
+func Draw(state []tools.Point, title, format string, display bool) {
 	// Convert aggregation points to plot points
 	xys := make(plotter.XYs, len(state))
 	for i, point := range state {
 		xy := &xys[i]
-		xy.X = float64(point.X)
-		xy.Y = float64(point.Y)
+		x, y := point.XY()
+		xy.X, xy.Y = float64(x), float64(y)
 	}
 
 	// Set up the plot
@@ -85,12 +115,13 @@ func Draw(state []agg.Point, title, format string, display bool) {
 	open.Run(fileName)
 }
 
-func Dimension(states [][]agg.Point, title, format string, display bool) (float64, float64) {
+func Dimension(states [][]tools.Point, title, format string, display bool) (float64, float64) {
 	
 	var r2Max int64 = 0
 	for _, state := range states {
 		for _, point := range state {
-			if r2 := point.X*point.X + point.Y*point.Y; r2 > r2Max {
+			x, y := point.XY()
+			if r2 := x*x + y*y; r2 > r2Max {
 				r2Max = r2
 			}
 		}
@@ -141,7 +172,7 @@ func Dimension(states [][]agg.Point, title, format string, display bool) (float6
 	return tools.LeastSquares(xys)
 }
 
-func dimension(state []agg.Point, r int64) plotter.XYs {
+func dimension(state []tools.Point, r int64) plotter.XYs {
 	log2 := int64(math.Ceil(math.Log2(float64(r*2))))
 	pow2 := int64(math.Pow(2, float64(log2)))
 
@@ -156,8 +187,11 @@ func dimension(state []agg.Point, r int64) plotter.XYs {
 		}
 
 		for _, point := range state {
-			x := (r + point.X) / w
-			y := (r + point.Y) / w
+			x, y := point.XY()
+
+			x = (r + x) / w
+			y = (r + x) / w
+
 			boxs[x][y] += 1
 		}
 
@@ -170,19 +204,20 @@ func dimension(state []agg.Point, r int64) plotter.XYs {
 			}
 		}
 
-		xys[i-1].X = float64(w)
+		xys[i-1].X = float64(n)
 		xys[i-1].Y = float64(sum)
 	}
 
 	return xys
 }
 
-func Density(states [][]agg.Point, title, format string, display bool) (float64, float64) {
+func Density(states [][]tools.Point, title, format string, display bool) (float64, float64) {
 
 	var r2Max int64 = 0
 	for _, state := range states {
 		for _, point := range state {
-			if r2 := point.X*point.X + point.Y*point.Y; r2 > r2Max {
+			x, y := point.XY()
+			if r2 := x*x + y*y; r2 > r2Max {
 				r2Max = r2
 			}
 		}
@@ -233,14 +268,16 @@ func Density(states [][]agg.Point, title, format string, display bool) (float64,
 	return tools.LeastSquares(xys)
 }
 
-func density(state []agg.Point, r int64) plotter.XYs {
+func density(state []tools.Point, r int64) plotter.XYs {
 
 	R := make(map[int64]int64)
 
 	for i, point1 := range state {
 		for _, point2 := range state[:i] {
-			dx := point1.X - point2.X
-			dy := point1.Y - point2.Y
+			x1, y1 := point1.XY()
+			x2, y2 := point2.XY()
+			dx := x1-x2
+			dy := y1-y2
 
 			d := math.Sqrt(float64(dx*dx+dy*dy))
 
@@ -249,4 +286,5 @@ func density(state []agg.Point, r int64) plotter.XYs {
 	}
 
 	//TODO
+	return nil
 }

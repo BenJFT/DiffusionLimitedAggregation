@@ -3,7 +3,10 @@ package aggregation
 import (
 	"math"
 	"math/rand"
+	"github.com/Benjft/DiffusionLimitedAggregation/tools"
 )
+
+
 
 const (
 	BORDER_SCALE float64 = 1.5
@@ -11,6 +14,10 @@ const (
 
 type Point struct {
 	X, Y int64
+}
+
+func (point Point) XY() (int64, int64) {
+	return point.X, point.Y
 }
 
 type Aggregator struct {
@@ -114,7 +121,7 @@ func (agg *Aggregator) setRadius() {
 	agg.intBorder = int64(agg.borderRadius)
 }
 
-func (agg *Aggregator) Aggregate(n int64, sticking float64, rng *rand.Rand) map[Point]int64 {
+func (agg *Aggregator) Aggregate(n int64, sticking float64, rng *rand.Rand) map[tools.Point]int64 {
 	state := make(map[Point]int64, n) //prealocate memory
 
 	point := &agg.currPoint //reference point in cache to avoid gc
@@ -133,5 +140,10 @@ func (agg *Aggregator) Aggregate(n int64, sticking float64, rng *rand.Rand) map[
 		}
 		state[*point] = i
 	}
-	return state
+
+	ret := make(map[tools.Point]int64, len(state))
+	for k, v := range state {
+		ret[k] = v
+	}
+	return ret
 }
