@@ -7,9 +7,7 @@ import (
 	"strings"
 
 	"github.com/Benjft/DiffusionLimitedAggregation/tools"
-	agg "github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 	proc "github.com/Benjft/DiffusionLimitedAggregation/processing"
-	"github.com/Benjft/DiffusionLimitedAggregation/genagg"
 )
 
 var (
@@ -18,7 +16,7 @@ var (
 	runRuns int64
 	runSticking float64
 
-	runStates [][]proc.Point
+	runStates [][]tools.Point
 )
 
 func handleRun(args []string) {
@@ -33,7 +31,7 @@ func handleRun(args []string) {
 	if err == nil {
 		fmt.Printf("Seed = %d\n Num = %d\n Runs = %d\n Sticking = %f\n", runSeed, runN, runRuns, runSticking)
 		fmt.Println("Running, please wait")
-		runStates = proc.Run2(runSeed, runN, runRuns, runSticking)
+		runStates = proc.Run(runSeed, runN, runRuns, runSticking)
 		fmt.Println("Done")
 	}
 

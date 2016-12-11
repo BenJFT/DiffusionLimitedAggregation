@@ -180,8 +180,7 @@ func RunNew(n int64, pStick float64, rng *rand.Rand) (state map[tools.Point]int6
 
 	// state for return uses an interface. Because of how go handles this the lookup is much slower therefore a
 	// duplicate map is kept in the cache using the local type.
-	// while less clear, fractional time savings can be made by doing this in the same loop, however it would be
-	// more clear doing these in separate loops, as detailed in comments towards the bottom of this function
+	// while less clear, fractional time savings can be made by doing this in the same loop
 	state = make(map[tools.Point]int64, n)
 	state[c.currPoint] = 0
 
@@ -196,11 +195,6 @@ func RunNew(n int64, pStick float64, rng *rand.Rand) (state map[tools.Point]int6
 			c.updateStateRadius()
 		}
 	}
-
-	//state = make(map[tools.Point]int64, len(c.state))
-	//for k, v := range c.state {
-	//	state[k] = v
-	//}
 
 	return state
 }

@@ -17,16 +17,15 @@ import (
 	"github.com/skratchdot/open-golang/open"
 )
 
-func Run(seed, n, runs int64, sticking float64) [][]tools.Point {
+func RunNoCache(seed, n, runs int64, sticking float64) [][]tools.Point {
 	rand.Seed(seed)
 
 	chans := make([]chan map[tools.Point]int64, runs)
 	for i := int64(0); i < runs; i++ {
-		a := &agg.Aggregator{}
 		c := make(chan map[tools.Point]int64)
 		go func() {
 			rng := rand.New(rand.NewSource(rand.Int63()))
-			c <- a.Aggregate(n, sticking, rng)
+			c <- agg.RunNew(n, sticking, rng)
 		} ()
 		chans[i] = c
 	}
@@ -47,7 +46,7 @@ func Run(seed, n, runs int64, sticking float64) [][]tools.Point {
 	return ret
 }
 
-func Run2(seed, n, runs int64, sticking float64) [][]tools.Point {
+func Run(seed, n, runs int64, sticking float64) [][]tools.Point {
 	rand.Seed(seed)
 
 	chans := make([]chan map[tools.Point]int64, runs)
