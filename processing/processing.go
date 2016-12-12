@@ -111,7 +111,9 @@ func Draw(state []tools.Point, title, format string, display bool) {
 	D := vg.Length(max - min)
 	plt.Save(vg.Millimeter*2*D, vg.Millimeter*2*D, fileName)
 
-	open.Run(fileName)
+	if display {
+		open.Run(fileName)
+	}
 }
 
 func dimension(state []tools.Point, r int64) plotter.XYs {
