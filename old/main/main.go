@@ -19,8 +19,6 @@ var (
 	runStates [][]tools.Point
 )
 
-//var formats := map[string]
-
 func handleRun(args []string) {
 	flags := flag.NewFlagSet("run", flag.ContinueOnError)
 
