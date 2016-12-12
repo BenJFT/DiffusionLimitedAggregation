@@ -19,6 +19,8 @@ var (
 	runStates [][]tools.Point
 )
 
+//var formats := map[string]
+
 func handleRun(args []string) {
 	flags := flag.NewFlagSet("run", flag.ContinueOnError)
 
@@ -34,7 +36,6 @@ func handleRun(args []string) {
 		runStates = proc.Run(runSeed, runN, runRuns, runSticking)
 		fmt.Println("Done")
 	}
-
 }
 
 func handleDraw(args []string) {
@@ -60,18 +61,42 @@ func handleDraw(args []string) {
 	for i, state := range runStates {
 		rTitle := fmt.Sprintf("%s-run%d", title, i)
 		fmt.Printf("title-%s  fmt-%s  disp-%t\n", rTitle, format, display)
-		proc.Draw(state, rTitle, format, display)
+		proc.DrawTime(state, rTitle, format, display)
 	}
 }
 
 func handleDimension(args []string) {
-	// todo flags
-	a, b := proc.Dimension(runStates, "tmp", "svg", true)
-	println(a, b)
+	flags := flag.NewFlagSet("dimesion", flag.ContinueOnError)
+
+	var title, format string
+	var display bool
+
+	title = fmt.Sprintf("dimension-seed%d-n%d-runs%d-sticking%f", runSeed, runN, runRuns, runSticking)
+
+	flags.StringVar(&title, "title", title, "the header for the plot and the name of the file")
+	flags.StringVar(&format, "format", "svg", "the file type to output the plot as. (allowed svg, png, jpg, tif")
+	flags.BoolVar(&display, "display", true, "open the plot after saving. Opens in the befault web browser")
+
+	flags.Parse(args)
+
+	a, b := proc.Dimension(runStates, title, format, true)
+	fmt.Printf("y=%.3fx+%.3f\n",a, b)
 }
 
 func handleRadii(args []string) {
-	proc.Radius(runStates)
+	flags := flag.NewFlagSet("radii", flag.ContinueOnError)
+
+	var title, format string
+	var display bool
+
+	title = fmt.Sprintf("radii-seed%d-n%d-runs%d-sticking%f", runSeed, runN, runRuns, runSticking)
+
+	flags.StringVar(&title, "title", title, "the header for the plot and the name of the file")
+	flags.StringVar(&format, "format", "svg", "the file type to output the plot as. (allowed svg, png, jpg, tif")
+	flags.BoolVar(&display, "display", true, "open the plot after saving. Opens in the befault web browser")
+
+	flags.Parse(args)
+	proc.Radius(runStates, title, format, display)
 }
 
 func handle(strs []string) {

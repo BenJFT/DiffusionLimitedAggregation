@@ -116,6 +116,49 @@ func Draw(state []tools.Point, title, format string, display bool) {
 	}
 }
 
+func DrawTime(state []tools.Point, title, format string, display bool) {
+	// Set up the plot
+	plt, _ := plot.New()
+	plt.Title.Text = title
+	plt.X.Label.Text = "X Displacement"
+	plt.Y.Label.Text = "Y Displacement"
+	grid := plotter.NewGrid()
+	plt.Add(grid)
+
+	// Convert aggregation points to plot points
+	xys := make(plotter.XYs, len(state))
+	for i, point := range state {
+		_xys := make(plotter.XYs, 1)
+		xy := &_xys[0]
+		x, y := point.XY()
+		xy.X, xy.Y = float64(x), float64(y)
+
+		s, _ := plotter.NewScatter(_xys)
+		s.Color = color.RGBA{R: uint8(255*float64(i)/float64(len(state))), B: uint8(255*(1-float64(i)/float64(len(state)))), A: 255}
+		s.Shape = draw.PlusGlyph{}
+		plt.Add(s)
+		xys[i] = *xy
+	}
+
+	// Squaring the axis so point are evenly spaced
+	min := math.Min(plt.X.Min, plt.Y.Min)
+	max := math.Max(plt.X.Max, plt.Y.Max)
+
+	plt.X.Min = min
+	plt.Y.Min = min
+	plt.X.Max = max
+	plt.Y.Max = max
+
+	// Save the plot
+	fileName := fmt.Sprintf("%s.%s", title, format)
+	D := vg.Length(max - min)
+	plt.Save(vg.Millimeter*2*D, vg.Millimeter*2*D, fileName)
+
+	if display {
+		open.Run(fileName)
+	}
+}
+
 func dimension(state []tools.Point, r int64) plotter.XYs {
 	log2 := int64(math.Ceil(math.Log2(float64(r*2))))
 	pow2 := int64(math.Pow(2, float64(log2)))
@@ -190,6 +233,8 @@ func Dimension(states [][]tools.Point, title, format string, display bool) (floa
 		}
 	}
 
+	m, c := tools.LeastSquares(xys)
+
 	plt, err := plot.New()
 	if err != nil {
 		panic(err)
@@ -198,8 +243,9 @@ func Dimension(states [][]tools.Point, title, format string, display bool) (floa
 	if err != nil {
 		panic(err)
 	}
+	l := plotter.NewFunction(func (x float64) float64 { return m*x + c })
 
-	plt.Add(s)
+	plt.Add(s, l)
 	plt.Title.Text = title
 	plt.X.Label.Text = "Log10 box width"
 	plt.Y.Label.Text = "log10 box count"
@@ -209,7 +255,7 @@ func Dimension(states [][]tools.Point, title, format string, display bool) (floa
 	plt.Save(vg.Inch*10, vg.Inch*10, fileName)
 	open.Run(fileName)
 
-	return tools.LeastSquares(xys)
+	return m, c
 }
 
 func inCircle(p tools.Point, cx, cy, cr2 float64) bool {
@@ -334,7 +380,7 @@ func radius(state []tools.Point) (radii []float64) {
 	return radii
 }
 
-func Radius(states [][]tools.Point) {
+func Radius(states [][]tools.Point, title, format string, display bool) {
 	runs := len(states)
 
 	chans := make([]chan []float64, runs)
@@ -360,10 +406,11 @@ func Radius(states [][]tools.Point) {
 
 	for i := range xys {
 		xy := &xys[i]
-		xy.X, xy.Y = math.Log(xy.X), math.Log(xy.Y)
+		xy.X, xy.Y = math.Log(xy.Y), math.Log(xy.X)
 	}
-	m, c := tools.LeastSquares(xys)
-	println(1/m, c)
+	m, me, c, _ := tools.LR_2(xys)
+	fmt.Printf("y = %.3fx+%.3f\n", m, c)
+	fmt.Printf("D = %.3f \u00B1 %.3f\n", m, me)
 
 	plt, _ := plot.New()
 	s, _ := plotter.NewScatter(xys)
@@ -372,6 +419,9 @@ func Radius(states [][]tools.Point) {
 	s.Shape = draw.CrossGlyph{}
 	plt.Add(s, l)
 
-	plt.Save(vg.Inch*10, vg.Inch*10, "tmp.svg")
-	open.Run("tmp.svg")
+	fileName := fmt.Sprintf("%s.%s", title, format)
+	plt.Save(vg.Inch*10, vg.Inch*10, fileName)
+	if display {
+		open.Run(fileName)
+	}
 }
