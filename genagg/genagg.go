@@ -9,6 +9,7 @@ import (
 
 const (
 	BORDER_SCALE float64 = 1.5
+	BORDER_CONST float64 = 5
 )
 
 // references a given lattice point
@@ -50,7 +51,7 @@ func (c *cache) updateCurrPointRadius() {
 }
 func (c *cache) updateStateRadius() {
 	c.stateRadius = c.currPointRadius
-	c.borderRadius = c.stateRadius*BORDER_SCALE + 1
+	c.borderRadius = c.stateRadius*BORDER_SCALE + BORDER_CONST
 	c.borderRadiusInt = int64(c.borderRadius)
 }
 
@@ -75,7 +76,7 @@ func (c *cache) walkPoint() {
 	switch point := &c.currPoint; c.rng.Int63n(4) {
 	case 0:
 		point.X++
-		if c.currPointRadius < 1+c.stateRadius && c.currPointIn() {
+		if c.currPointRadius < 4+c.stateRadius && c.currPointIn() {
 			point.X--
 		} else {
 			if point.X > c.borderRadiusInt {
@@ -85,7 +86,7 @@ func (c *cache) walkPoint() {
 		}
 	case 1:
 		point.X--
-		if c.currPointRadius < 1+c.stateRadius && c.currPointIn() {
+		if c.currPointRadius < 4+c.stateRadius && c.currPointIn() {
 			point.X++
 		} else {
 			if point.X < -c.borderRadiusInt {
@@ -95,7 +96,7 @@ func (c *cache) walkPoint() {
 		}
 	case 2:
 		point.Y++
-		if c.currPointRadius < 1+c.stateRadius && c.currPointIn() {
+		if c.currPointRadius < 4+c.stateRadius && c.currPointIn() {
 			point.Y--
 		} else {
 			if point.Y > c.borderRadiusInt {
@@ -105,7 +106,7 @@ func (c *cache) walkPoint() {
 		}
 	case 3:
 		point.Y--
-		if c.currPointRadius < 1+c.stateRadius && c.currPointIn() {
+		if c.currPointRadius < 4+c.stateRadius && c.currPointIn() {
 			point.Y++
 		} else {
 			if point.Y < -c.borderRadiusInt {
@@ -189,6 +190,9 @@ func RunNew(n int64, pStick float64, rng *rand.Rand) (state map[tools.Point]int6
 		for !c.currPointHasNeighbor() || pStick < rng.Float64() {
 			c.walkPoint()
 		}
+		//if _, ok := c.state[c.currPoint]; ok {
+		//	panic("Something went wrong here!")
+		//}
 		c.state[c.currPoint] = i
 		state[c.currPoint] = i
 		if c.currPointRadius > c.stateRadius {

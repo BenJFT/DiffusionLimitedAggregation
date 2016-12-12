@@ -65,8 +65,13 @@ func handleDraw(args []string) {
 }
 
 func handleDimension(args []string) {
-	a, b := proc.Dimension(runStates, "", "", true)
+	// todo flags
+	a, b := proc.Dimension(runStates, "tmp", "svg", true)
 	println(a, b)
+}
+
+func handleRadii(args []string) {
+	proc.Radius(runStates)
 }
 
 func handle(strs []string) {
@@ -80,6 +85,8 @@ func handle(strs []string) {
 		handleDraw(tail)
 	case "dimension":
 		handleDimension(tail)
+	case "radii":
+		handleRadii(tail)
 	default:
 		fmt.Println("Command not recognized")
 	}

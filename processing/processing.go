@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"image/color"
 
 	agg "github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 	"github.com/Benjft/DiffusionLimitedAggregation/tools"
@@ -52,10 +53,9 @@ func Run(seed, n, runs int64, sticking float64) [][]tools.Point {
 	chans := make([]chan map[tools.Point]int64, runs)
 	for i := int64(0); i < runs; i++ {
 		c := make(chan map[tools.Point]int64)
-		go func() {
-			rng := rand.New(rand.NewSource(rand.Int63()))
+		go func(rng *rand.Rand) {
 			c <- genagg.RunNew(n, sticking, rng)
-		} ()
+		} (rand.New(rand.NewSource(rand.Int63())))
 		chans[i] = c
 	}
 
@@ -112,6 +112,45 @@ func Draw(state []tools.Point, title, format string, display bool) {
 	plt.Save(vg.Millimeter*2*D, vg.Millimeter*2*D, fileName)
 
 	open.Run(fileName)
+}
+
+func dimension(state []tools.Point, r int64) plotter.XYs {
+	log2 := int64(math.Ceil(math.Log2(float64(r*2))))
+	pow2 := int64(math.Pow(2, float64(log2)))
+
+	xys := make(plotter.XYs, log2)
+	for i := int64(1); i <= log2; i++ {
+		n := int64(math.Pow(2, float64(i)))
+		w := pow2 / n
+
+		boxs := make([][]int64, n)
+		for i := range boxs {
+			boxs[i] = make([]int64, n)
+		}
+
+		for _, point := range state {
+			x, y := point.XY()
+
+			x = (r + x) / w
+			y = (r + y) / w
+
+			boxs[x][y] += 1
+		}
+
+		sum := 0
+		for _, row := range boxs {
+			for _, box := range row {
+				if box < w*w && box != 0{
+					sum += 1
+				}
+			}
+		}
+
+		xys[i-1].X = float64(n)
+		xys[i-1].Y = float64(sum)
+	}
+
+	return xys
 }
 
 func Dimension(states [][]tools.Point, title, format string, display bool) (float64, float64) {
@@ -171,119 +210,166 @@ func Dimension(states [][]tools.Point, title, format string, display bool) (floa
 	return tools.LeastSquares(xys)
 }
 
-func dimension(state []tools.Point, r int64) plotter.XYs {
-	log2 := int64(math.Ceil(math.Log2(float64(r*2))))
-	pow2 := int64(math.Pow(2, float64(log2)))
+func inCircle(p tools.Point, cx, cy, cr2 float64) bool {
+	x, y := p.XY()
+	dx := float64(x) - cx
+	dy := float64(y) - cy
 
-	xys := make(plotter.XYs, log2)
-	for i := int64(1); i <= log2; i++ {
-		n := int64(math.Pow(2, float64(i)))
-		w := pow2 / n
-
-		boxs := make([][]int64, n)
-		for i := range boxs {
-			boxs[i] = make([]int64, n)
-		}
-
-		for _, point := range state {
-			x, y := point.XY()
-
-			x = (r + x) / w
-			y = (r + x) / w
-
-			boxs[x][y] += 1
-		}
-
-		sum := 0
-		for _, row := range boxs {
-			for _, box := range row {
-				if box < w*w && box != 0{
-					sum += 1
-				}
-			}
-		}
-
-		xys[i-1].X = float64(n)
-		xys[i-1].Y = float64(sum)
-	}
-
-	return xys
+	r2 := dx*dx + dy*dy
+	return r2 <= cr2
 }
 
-func Density(states [][]tools.Point, title, format string, display bool) (float64, float64) {
+func allIn(state []tools.Point, cx, cy, cr2 float64) bool {
+	for _, point := range state {
+		if !inCircle(point, cx, cy, cr2) {
+			return false
+		}
+	}
+	return true
+}
 
-	var r2Max int64 = 0
-	for _, state := range states {
-		for _, point := range state {
-			x, y := point.XY()
-			if r2 := x*x + y*y; r2 > r2Max {
-				r2Max = r2
-			}
+func cross(x0, y0, x1, y1, x2, y2 float64) float64 {
+	return (x1 - x0)*(y2 - y0) - (y1 - y0)*(x2 - x0)
+}
+
+func makeDiameter(p0, p1 tools.Point) (cx, cy, cr2 float64) {
+	x0, y0 := p0.XY()
+	x1, y1 := p1.XY()
+
+	cx = float64(x0 + x1)/2
+	cy = float64(y0 + y1)/2
+
+	dx := float64(x0) - cx
+	dy := float64(y0) - cy
+
+	cr2 = dx*dx + dy*dy
+
+	return
+}
+
+func makeCircumCircle(p0, p1, p2 tools.Point) (cx, cy, cr2 float64) {
+	x0, y0 := p0.XY()
+	x1, y1 := p1.XY()
+	x2, y2 := p2.XY()
+
+	d := float64(x0*(y1 - y2) + x1*(y2 - y0) + x2*(y0 - y1))*2
+
+	if d == 0 {
+		return 0, 0, -1
+	}
+
+	cx = float64((x0*x0 + y0*y0)*(y1 - y2) + (x1*x1 + y1*y1)*(y2 - y0) + (x2*x2 + y2*y2)*(y0 - y1)) / d
+	cy = float64((x0*x0 + y0*y0)*(x2 - x1) + (x1*x1 + y1*y1)*(x0 - x2) + (x2*x2 + y2*y2)*(x1 - x0)) / d
+	dx := float64(x0) - cx
+	dy := float64(y0) - cy
+	cr2 = dx*dx + dy*dy
+
+	return cx, cy, cr2
+}
+
+func makeTwoPoints(state []tools.Point, p0, p1 tools.Point) (cx, cy, cr2 float64) {
+	cx, cy, cr2 = makeDiameter(p0, p1)
+
+	if allIn(state, cx, cy, cr2) {
+		return cx, cy, cr2
+	}
+
+	xa, ya := p0.XY()
+	x0, y0 := float64(xa), float64(ya)
+	xb, yb := p1.XY()
+	x1, y1 := float64(xb), float64(yb)
+
+	var lx, ly, lr2 float64
+	lr2 = -1
+	var rx, ry, rr2 float64
+	rr2 = -1
+
+	for _, p2 := range state {
+		xc, yc := p2.XY()
+		x2, y2 := float64(xc), float64(yc)
+		crs := cross((x0), (y0), (x1), (y1), (x2), (y2))
+		cx, cy, cr2 = makeCircumCircle(p0, p1, p2)
+
+		if cr2 == -1 {
+			continue
+		} else if crs > 0 && (lr2 == -1 || cross(x0, y0, x1, y1, cx, cy) > cross(x0, y0, x1, y1, lx, ly)) {
+			lx, ly, lr2 = cx, cy, cr2
+		} else if crs < 0 && (rr2 == -1 || cross(x0, y0, x1, y1, cx, cy) < cross(x0, y0, x1, y1, rx, ry)) {
+			rx, ry, rr2 = cx, cy, cr2
 		}
 	}
 
-	var r int64 = int64(math.Ceil(math.Sqrt(float64(r2Max))))
-	chans := make([]chan plotter.XYs, len(states))
-	for i, state := range states {
-		c := make(chan plotter.XYs)
-		go func() {
-			c <- dimension(state, r)
-		} ()
-		chans[i] = c
+	if rr2 == -1 || (lr2 != -1 &&lr2 <= rr2) {
+		return lx, ly, lr2
+	} else {
+		return rx, ry, rr2
+	}
+}
+
+func makeOnePoint(state []tools.Point, p0 tools.Point) (cx, cy, cr2 float64) {
+	x, y := p0.XY()
+	cx, cy = float64(x), float64(y)
+	for i, p1 := range state {
+		if !inCircle(p1, cx, cy, cr2) {
+			cx,cy, cr2 = makeTwoPoints(state[:i], p0, p1)
+		}
+	}
+	return
+}
+
+func radius(state []tools.Point) (radii []float64) {
+	var cx, cy, cr2 float64
+
+	radii = make([]float64, len(state))
+
+	for i, p0 := range state {
+		if !inCircle(p0, cx, cy, cr2) {
+			cx, cy, cr2 = makeOnePoint(state[:i], p0)
+		}
+		radii[i] = math.Sqrt(cr2)
 	}
 
-	var xys plotter.XYs
+	return radii
+}
+
+func Radius(states [][]tools.Point) {
+	runs := len(states)
+
+	chans := make([]chan []float64, runs)
+	for j, state := range states {
+		c := make(chan []float64)
+		go func (s []tools.Point) {
+			c <- radius(s)
+		} (state)
+		chans[j] = c
+	}
+
+	xys := make(plotter.XYs, 0)
 	for _, c := range chans {
-		xyData := <- c
-		for i := range xyData {
-			xy := &xyData[i]
-			xy.X = math.Log(xy.X)
-			xy.Y = math.Log(xy.Y)
-			if xy.X != math.Inf(+1) && xy.X != math.Inf(-1) && xy.Y != math.Inf(+1) && xy.Y != math.Inf(-1) {
-				xys = append(xys, *xy)
-			}
+		radii := <-c
+		radiiXY := make(plotter.XYs, len(radii))
+		for i, r := range radii {
+			xy := &radiiXY[i]
+			xy.X = float64(i+1)
+			xy.Y += float64(r+.5)/float64(runs)
 		}
+		xys = append(xys, radiiXY...)
 	}
 
-	plt, err := plot.New()
-	if err != nil {
-		panic(err)
+	for i := range xys {
+		xy := &xys[i]
+		xy.X, xy.Y = math.Log(xy.X), math.Log(xy.Y)
 	}
-	s, err := plotter.NewScatter(xys)
-	if err != nil {
-		panic(err)
-	}
+	m, c := tools.LeastSquares(xys)
+	println(1/m, c)
 
-	plt.Add(s)
-	plt.Title.Text = title
-	plt.X.Label.Text = "Log10 r (lattica const.)"
-	plt.Y.Label.Text = "log10 C(r)"
+	plt, _ := plot.New()
+	s, _ := plotter.NewScatter(xys)
+	l := plotter.NewFunction(func (x float64) float64 {return x*m + c})
+	s.Color = color.RGBA{R: 255, A: 255}
+	s.Shape = draw.CrossGlyph{}
+	plt.Add(s, l)
 
-	fileName := fmt.Sprintf("%s.%s", title, format)
-
-	plt.Save(vg.Inch*10, vg.Inch*10, fileName)
-	open.Run(fileName)
-
-	return tools.LeastSquares(xys)
-}
-
-func density(state []tools.Point, r int64) plotter.XYs {
-
-	R := make(map[int64]int64)
-
-	for i, point1 := range state {
-		for _, point2 := range state[:i] {
-			x1, y1 := point1.XY()
-			x2, y2 := point2.XY()
-			dx := x1-x2
-			dy := y1-y2
-
-			d := math.Sqrt(float64(dx*dx+dy*dy))
-
-			R[int64(math.Ceil(d))] += 1
-		}
-	}
-
-	//TODO
-	return nil
+	plt.Save(vg.Inch*10, vg.Inch*10, "tmp.svg")
+	open.Run("tmp.svg")
 }
