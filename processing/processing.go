@@ -18,6 +18,12 @@ import (
 	"github.com/skratchdot/open-golang/open"
 )
 
+func init() {
+	os.Mkdir("out", os.ModeDir)
+	os.Mkdir("out\\plot", os.ModeDir)
+	os.Mkdir("out\\saves", os.ModeDir)
+}
+
 var (
 	lastRun = types.Run{}
 )
