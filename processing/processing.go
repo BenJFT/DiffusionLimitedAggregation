@@ -3,19 +3,16 @@ package processing
 import (
 	"os"
 	"fmt"
-	"math"
 	"math/rand"
+	"bufio"
 	"encoding/gob"
 
 	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
+	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/xyz"
 	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 
-	"github.com/gonum/plot"
-	"github.com/gonum/plot/vg"
-	vgdraw "github.com/gonum/plot/vg/draw"
-	"github.com/gonum/plot/plotter"
-
 	"github.com/skratchdot/open-golang/open"
+	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/svg"
 )
 
 func init() {
@@ -68,54 +65,53 @@ func Run(nPoints, nRuns, seed, nDimension int64, sticking float64) {
 	}
 }
 
-func draw(state []types.Point, title, format string, width int64, display bool) {
-	var (
-		N int = len(state)
-		plt *plot.Plot
-		hsva types.HSVA = types.HSVA{H:0, S:1, V:.8, A:1}
-	)
-
-	plt, _ = plot.New()
-
-	for i, point := range state {
-
-		xy := point.Coordinates()
-		x, y := float64(xy[0]), float64(xy[1])
-		xys := make(plotter.XYs, 1)
-		xys[0].X = x
-		xys[0].Y = y
-
-		s, _ := plotter.NewScatter(xys)
-
-		hsva.H = 300*float64(i)/(360*float64(N))
-		s.Color = hsva
-		s.Shape = vgdraw.BoxGlyph{}
-		plt.Add(s)
+func draw3D(state []types.Point, title string, display bool) {
+	var name string = fmt.Sprintf("out\\plot\\%s.%s", title, "xyz")
+	file, err := os.Create(name)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
 	}
-
-	var min, max float64
-	min = math.Min(plt.X.Min, plt.Y.Min)
-	max = math.Max(plt.X.Max, plt.Y.Max)
-
-	plt.X.Min = min
-	plt.Y.Min = min
-	plt.X.Max = max
-	plt.Y.Max = max
-
-	var name string = fmt.Sprintf("out\\plot\\%s.%s", title, format)
-	var w vg.Length
-	if width == 0 {
-		w = vg.Millimeter*2*vg.Length(max-min)
-	} else {
-		w = vg.Millimeter*vg.Length(width)
+	defer file.Close()
+	writer := bufio.NewWriter(file)
+	str := xyz.Format(state)
+	_, err = writer.Write([]byte(str))
+	if err != nil {
+		fmt.Println(err.Error())
+		return
 	}
-
-	plt.Save(w, w, name)
 	if display {
-		open.Run(name)
+		err = open.Run(name)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 	}
 }
-func Draw(title, format string, width int64, display bool) {
+func draw2D(state []types.Point, title string, display bool) {
+	name := fmt.Sprintf("out\\plot\\%s.svg", title)
+	file, err := os.Create(name)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	defer file.Close()
+	writer := bufio.NewWriter(file)
+	str := svg.Format(state)
+	_, err = writer.Write([]byte(str))
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	if display {
+		err = open.Run(name)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+	}
+}
+func Draw(title string, display bool) {
 	if len(title) == 0 {
 		title = fmt.Sprintf("aggregate-n%d-seed%d-dims%d-stick%f",
 			lastRun.NPoints,
@@ -123,10 +119,18 @@ func Draw(title, format string, width int64, display bool) {
 			lastRun.NDimension,
 			lastRun.Sticking)
 	}
-	for run, state := range lastRun.Points {
-		runtitle := fmt.Sprintf("%s-run%d", title, run)
-
-		go draw(state, runtitle, format, width, display)
+	if n := lastRun.NDimension; n == 2 {
+		for run, state := range lastRun.Points {
+			runtitle := fmt.Sprintf("%s-run%d", title, run)
+			go draw2D(state, runtitle, display)
+		}
+	} else if n == 3 {
+		for run, state := range lastRun.Points {
+			runtitle := fmt.Sprintf("%s-run%d", title, run)
+			go draw3D(state, runtitle, display)
+		}
+	} else {
+		fmt.Println("Can only draw 2D and 3D lattices")
 	}
 }
 

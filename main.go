@@ -53,32 +53,19 @@ func handleDraw(args []string) (tail []string) {
 	var flags *flag.FlagSet = flag.NewFlagSet("draw", flag.ContinueOnError)
 	flags.SetOutput(os.Stdout)
 
-	var name, format string
-	var size int64
+	var name string
 	var display bool
 
 	flags.StringVar(&name, "name", "", "The name for the file. (Default based on run args)")
-	flags.StringVar(&format, "format", "svg", "The format for the output image.")
-
-	flags.Int64Var(&size, "width", 0, "The width of the output file (in mm) Use 0 for auto")
 
 	flags.BoolVar(&display, "disp", false, "Auto open the drawn figures")
 
 	var err error = flags.Parse(args)
 	if err != nil {
 		fmt.Println(err)
-	} else if !formats[format] {
-		var str string = "Allowed file formats:"
-		for k := range formats {
-			str +=  " " + k
-		}
-
-		flags.PrintDefaults()
-	} else if size < 0 {
-		fmt.Println("Size must be larger than 0 (or 0 for automatic)")
 	} else {
 		tail = flags.Args()
-		processing.Draw(name, format, size, display)
+		processing.Draw(name, display)
 	}
 	return tail
 }

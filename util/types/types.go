@@ -13,6 +13,7 @@ func init() {
 }
 
 //--------------Point Types--------------
+
 type Point interface {
 	Coordinates() []int64
 	Distance(coords ...int64) float64
@@ -52,6 +53,7 @@ func (p Point3D) Distance(coords ...int64) float64 {
 }
 
 //--------------Utility Structures--------------
+
 type Run struct {
 	NPoints, NDimension, NRuns, Seed int64
 	Sticking float64
