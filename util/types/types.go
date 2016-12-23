@@ -16,8 +16,17 @@ func init() {
 
 type Point interface {
 	Coordinates() []int64
-	Distance(coords ...int64) float64
+	SquareDistance(coords ...float64) float64
 }
+
+//func (p0 Point) SquareDistancePoint(p1 Point) float64 {
+//	tmp := p1.Coordinates()
+//	coord := make([]float64, len(tmp))
+//	for i, x := range tmp {
+//		coord[i] = float64(x)
+//	}
+//	return p0.SquareDistance(coord...)
+//}
 
 type Point2D struct {
 	X, Y int64
@@ -27,12 +36,13 @@ func (p Point2D) Coordinates() []int64 {
 	return []int64{p.X, p.Y}
 }
 
-func (p Point2D) Distance(coords ...int64) float64 {
-	var dx, dy int64
-	dx = p.X - coords[0]
-	dy = p.Y - coords[1]
+func (p Point2D) SquareDistance(coords ...float64) float64 {
+	var x, y int64 = p.X, p.Y
+	var fx, fy, X, Y = float64(x), float64(y), coords[0], coords[1]
+	dx := fx - X
+	dy := fy - Y
 
-	return math.Sqrt(float64(dx*dx + dy*dy))
+	return dx*dx + dy*dy
 }
 
 type Point3D struct {
@@ -43,13 +53,13 @@ func (p Point3D) Coordinates() []int64 {
 	return []int64{p.X, p.Y, p.Z}
 }
 
-func (p Point3D) Distance(coords ...int64) float64 {
-	var dx, dy, dz int64
-	dx = p.X - coords[0]
-	dy = p.Y - coords[1]
-	dz = p.Z - coords[2]
+func (p Point3D) SquareDistance(coords ...float64) float64 {
+	var dx, dy, dz float64
+	dx = float64(p.X) - coords[0]
+	dy = float64(p.Y) - coords[1]
+	dz = float64(p.Z) - coords[2]
 
-	return math.Sqrt(float64(dx*dx + dy*dy + dz*dz))
+	return dx*dx + dy*dy + dz*dz
 }
 
 //--------------Utility Structures--------------

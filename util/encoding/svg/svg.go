@@ -7,7 +7,7 @@ import (
 	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
 )
 
-func Format(points []types.Point) string {
+func DrawAggregate(points []types.Point) string {
 	const (
 		width int64 = 10
 	)

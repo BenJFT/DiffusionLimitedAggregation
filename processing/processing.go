@@ -3,16 +3,19 @@ package processing
 import (
 	"os"
 	"fmt"
+	//"math"
 	"math/rand"
 	"bufio"
 	"encoding/gob"
 
-	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
-	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/xyz"
 	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
+	"github.com/Benjft/DiffusionLimitedAggregation/processing/analysis"
+	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/svg"
+	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/xyz"
+	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
 
 	"github.com/skratchdot/open-golang/open"
-	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/svg"
+	"github.com/Benjft/DiffusionLimitedAggregation/util/plot"
 )
 
 func init() {
@@ -33,8 +36,7 @@ func Run(nPoints, nRuns, seed, nDimension int64, sticking float64) {
 
 	rand.Seed(seed)
 	for i := range channels {
-		var channel chan []types.Point
-		channel = make(chan []types.Point)
+		var channel chan []types.Point = make(chan []types.Point)
 		go run(nPoints, rand.Int63(), nDimension, sticking, channel)
 		channels[i] = channel
 	}
@@ -97,7 +99,7 @@ func draw2D(state []types.Point, title string, display bool) {
 	}
 	defer file.Close()
 	writer := bufio.NewWriter(file)
-	str := svg.Format(state)
+	str := svg.DrawAggregate(state)
 	_, err = writer.Write([]byte(str))
 	if err != nil {
 		fmt.Println(err.Error())
@@ -119,6 +121,7 @@ func Draw(title string, display bool) {
 			lastRun.NDimension,
 			lastRun.Sticking)
 	}
+
 	if n := lastRun.NDimension; n == 2 {
 		for run, state := range lastRun.Points {
 			runtitle := fmt.Sprintf("%s-run%d", title, run)
@@ -176,4 +179,41 @@ func Load(title string) {
 	}
 
 	lastRun = tmpRun
+}
+
+func radii(run []types.Point, chanel chan []analysis.Ball) {
+	chanel <- analysis.ApproxBounding(run)
+}
+func Radii() {
+	var channels []chan []analysis.Ball = make([]chan []analysis.Ball, lastRun.NRuns)
+	for i, run := range lastRun.Points {
+		var channel chan []analysis.Ball = make(chan []analysis.Ball)
+		go radii(run, channel)
+		channels[i] = channel
+	}
+
+	radii := make([]float64, lastRun.NPoints)
+	for _, channel := range channels {
+		runBalls := <-channel
+		for i, ball := range runBalls {
+			radii[i] += ball.Radius/float64(lastRun.NRuns)
+		}
+	}
+	scat := plot.NewScatter(make([]float64, lastRun.NPoints), make([]float64, lastRun.NPoints))
+	for i, r := range radii {
+		scat.XY[i].X = float64(i+1)
+		scat.XY[i].Y = r
+	}
+	scat.VertShape = plot.ShapeCircle{}
+
+	str := plot.Plot(scat)
+	name := "out\\plot\\TEST.svg"
+	file, err := os.Create(name)
+	if err != nil {
+		panic(err)
+	}
+	writer := bufio.NewWriter(file)
+	writer.Write([]byte(str))
+
+	open.Run(name)
 }
