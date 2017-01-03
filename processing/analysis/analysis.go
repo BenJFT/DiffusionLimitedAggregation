@@ -6,12 +6,12 @@ import (
 )
 
 type Ball struct {
-	Coords []float64
-	Radius, SquareRadius float64
+	Coords                 []float64
+	Radius, SquareDistance float64
 }
 
 func extendTo(ball *Ball, p1 types.Point) {
-	if d2 := p1.SquareDistance(ball.Coords...); d2 < ball.SquareRadius {
+	if d2 := p1.SquareDistance(ball.Coords); d2 <= ball.SquareDistance {
 		return
 	} else {
 		r := math.Sqrt(d2)
@@ -25,6 +25,8 @@ func extendTo(ball *Ball, p1 types.Point) {
 		for i, x := range dCoords {
 			ball.Coords[i] += dr*x/r
 		}
+		ball.Radius += dr
+		ball.SquareDistance = math.Pow(ball.Radius, 2)
 	}
 }
 
