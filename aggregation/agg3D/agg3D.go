@@ -1,6 +1,7 @@
 package agg3D
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 
@@ -9,7 +10,7 @@ import (
 
 const (
 	BORDER_SCALE float64 = 1.5
-	BORDER_CONST float64 = 5
+	BORDER_CONST float64 = 3
 )
 
 type cache struct {
@@ -118,7 +119,7 @@ func (c *cache) walkPoint() {
 		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
 			point.Z++
 		} else {
-			if point.Z > c.borderRadiusInt {
+			if point.Z < -c.borderRadiusInt {
 				point.Z += 2*c.borderRadiusInt
 			}
 			c.lastWalk = 5
@@ -211,7 +212,7 @@ func (c *cache) pointHasNeighbor() bool {
 			c.isBackIn())
 }
 
-// runs a new 2d aggregation simulation and returns the finished state
+// runs a new 3d aggregation simulation and returns the finished state
 func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[types.Point3D]int64 {
 
 	c := cache{}
@@ -221,13 +222,16 @@ func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[types.Point3D]i
 	c.updateStateRadius()
 
 	for i := int64(1); i < nPoints; i++ {
+		if i == 32 {
+			print("")
+		}
 		c.pointToBorder()
 		for !c.pointHasNeighbor() || sticking < rng.Float64() {
 			c.walkPoint()
 		}
-		//if _, ok := c.state[c.currPoint]; ok {
-		//	panic("Something went wrong here!")
-		//}
+		if _, ok := c.state[c.point]; ok {
+			panic(fmt.Sprintf("Something went wrong here! %d", i))
+		}
 		c.state[c.point] = i
 		if c.pointRadius > c.stateRadius {
 			c.updateStateRadius()
