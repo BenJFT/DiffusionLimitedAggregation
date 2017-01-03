@@ -3,19 +3,24 @@ package processing
 import (
 	"os"
 	"fmt"
-	//"math"
+	"math"
 	"math/rand"
 	"bufio"
 	"encoding/gob"
 
 	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/analysis"
+	"github.com/Benjft/DiffusionLimitedAggregation/util"
 	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/svg"
 	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/xyz"
 	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
 
 	"github.com/skratchdot/open-golang/open"
-	"github.com/Benjft/DiffusionLimitedAggregation/util/plot"
+	"github.com/gonum/plot"
+	"github.com/gonum/plot/plotter"
+	"github.com/gonum/plot/vg"
+	"github.com/gonum/plot/plotutil"
+
 )
 
 func init() {
@@ -192,28 +197,57 @@ func Radii() {
 		channels[i] = channel
 	}
 
-	radii := make([]float64, lastRun.NPoints)
-	for _, channel := range channels {
+	radii := make([][]float64, lastRun.NRuns)
+	for i, channel := range channels {
+		radii[i] = make([]float64, lastRun.NPoints)
 		runBalls := <-channel
-		for i, ball := range runBalls {
-			radii[i] += ball.Radius/float64(lastRun.NRuns)
+		for j, ball := range runBalls {
+			radii[i][j] = ball.Radius
 		}
 	}
-	scat := plot.NewScatter(make([]float64, lastRun.NPoints), make([]float64, lastRun.NPoints))
-	for i, r := range radii {
-		scat.XY[i].X = float64(i+1)
-		scat.XY[i].Y = r
-	}
-	scat.VertShape = plot.ShapeCircle{}
 
-	str := plot.Plot(scat)
-	name := "out\\plot\\TEST.svg"
-	file, err := os.Create(name)
+	//radius, stdErr := util.MeanAndErr(radii)
+
+	radii = util.Transpose(radii)
+
+	pts := make([]plotter.XYer, len(radii))
+	allXY := plotter.XYs{}
+	for i, r := range radii {
+		xys := make(plotter.XYs, len(r))
+		N := float64(i+1)
+		for j, y := range r {
+			xys[j].X = math.Log10(y+.5)
+			xys[j].Y = math.Log10(N)
+		}
+		pts[i] = xys
+
+		// Ignore the first few as growth will be non typical
+		if i > 10 {
+			allXY = append(allXY, xys...)
+		}
+	}
+
+	plt , err := plot.New()
 	if err != nil {
 		panic(err)
 	}
-	writer := bufio.NewWriter(file)
-	writer.Write([]byte(str))
 
+	mean95, err := plotutil.NewErrorPoints(plotutil.MeanAndConf95, pts...)
+	if err != nil {
+		panic(err)
+	}
+
+	a, b, _, eb := util.LeastSquares(allXY)
+	fmt.Printf("D = %.3f \u00B1 %.3f\n", b, eb)
+	label := fmt.Sprintf("y = %.3f + %.3fx", a, b)
+	fit := plotter.NewFunction(func (x float64) float64 { return a + b*x })
+
+	plotutil.AddScatters(plt, mean95)
+	plotutil.AddXErrorBars(plt, mean95)
+	plt.Add(fit)
+	plt.Legend.Add(label, fit)
+
+	name := "out\\plot\\TEST.svg"
+	plt.Save(15*vg.Inch, 10*vg.Inch, name)
 	open.Run(name)
 }
