@@ -3,41 +3,47 @@ package aggregation
 import (
 	"fmt"
 	"math/rand"
+	"encoding/gob"
 
-	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
 	"github.com/Benjft/DiffusionLimitedAggregation/aggregation/agg2D"
 	"github.com/Benjft/DiffusionLimitedAggregation/aggregation/agg3D"
 )
 
-func Run2D(nPoints, seed int64, sticking float64) (points []types.Point) {
+func init() {
+	gob.Register(agg2D.Point2D{})
+	gob.Register(agg3D.Point3D{})
+}
 
-	var rng *rand.Rand
-	rng = rand.New(rand.NewSource(seed))
-	var state map[types.Point2D]int64
-	state = agg2D.RunNew(nPoints, sticking, rng)
+type Point interface {
+	Coordinates() []int64
+	SquareDistance(coords []float64) float64
+}
 
-	points = make([]types.Point, nPoints)
+func Run2D(nPoints, seed int64, sticking float64) (points []Point) {
+
+	var rng *rand.Rand = rand.New(rand.NewSource(seed))
+	var state = agg2D.RunNew(nPoints, sticking, rng)
+
+	points = make([]Point, nPoints)
 	for point, index := range state {
 		points[index] = point
 	}
 	return points
 }
 
-func Run3D(nPoints, seed int64, sticking float64) (points []types.Point) {
+func Run3D(nPoints, seed int64, sticking float64) (points []Point) {
 
-	var rng *rand.Rand
-	rng = rand.New(rand.NewSource(seed))
-	var state map[types.Point3D]int64
-	state = agg3D.RunNew(nPoints, sticking, rng)
+	var rng *rand.Rand = rand.New(rand.NewSource(seed))
+	var state = agg3D.RunNew(nPoints, sticking, rng)
 
-	points = make([]types.Point, nPoints)
+	points = make([]Point, nPoints)
 	for point, index := range state {
 		points[index] = point
 	}
 	return points
 }
 
-func RunNew(nPoints, seed, nDimension int64, sticking float64) []types.Point {
+func RunNew(nPoints, seed, nDimension int64, sticking float64) []Point {
 	switch nDimension {
 	case 2:	return Run2D(nPoints, seed, sticking)
 	case 3: return Run3D(nPoints, seed, sticking)

@@ -3,8 +3,6 @@ package agg2D
 import (
 	"math"
 	"math/rand"
-
-	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
 )
 
 const (
@@ -12,23 +10,43 @@ const (
 	BORDER_CONST float64 = 5
 )
 
+type Point2D struct {
+	X, Y int64
+}
+
+func (p Point2D) Coordinates() []int64 {
+	return []int64{p.X, p.Y}
+}
+
+func (p Point2D) SquareDistance(coords []float64) float64 {
+	var (
+		ix, iy int64 = p.X, p.Y
+		fx, fy float64 = float64(ix), float64(iy)
+		x, y float64 = coords[0], coords[1]
+		dx float64 = fx - x
+		dy float64 = fy - y
+	)
+	return dx*dx + dy*dy
+}
+
+
 // caching structure. Exists as an optimisation by preventing memory reassignment, this helps reduce time spent in
 // garbage collection, and helps keep variables in the cpu register or caches. Early implementations of this gave a
 // a significant speedup
 type cache struct {
-	point           types.Point2D
+	point           Point2D
 	pointRadius     float64
 
 	rng             *rand.Rand
 	lastWalk        int64
 
-	state           map[types.Point2D]int64
+	state           map[Point2D]int64
 	stateRadius     float64
 
 	borderRadius    float64
 	borderRadiusInt int64
 
-	tempPoint       types.Point2D
+	tempPoint       Point2D
 	tempFloat       float64
 }
 
@@ -162,11 +180,11 @@ func (c *cache) pointHasNeighbor() bool {
 }
 
 // runs a new 2d aggregation simulation and returns the finished state
-func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[types.Point2D]int64 {
+func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[Point2D]int64 {
 
 	c := cache{}
 	c.rng = rng
-	c.state = make(map[types.Point2D]int64, nPoints)
+	c.state = make(map[Point2D]int64, nPoints)
 	c.state[c.point] = 0
 	c.updateStateRadius()
 

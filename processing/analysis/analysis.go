@@ -2,7 +2,7 @@ package analysis
 
 import (
 	"math"
-	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
+	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 )
 
 type Ball struct {
@@ -10,7 +10,7 @@ type Ball struct {
 	Radius, SquareDistance float64
 }
 
-func extendTo(ball *Ball, p1 types.Point) {
+func extendTo(ball *Ball, p1 aggregation.Point) {
 	if d2 := p1.SquareDistance(ball.Coords); d2 <= ball.SquareDistance {
 		return
 	} else {
@@ -30,7 +30,7 @@ func extendTo(ball *Ball, p1 types.Point) {
 	}
 }
 
-func ApproxBounding(points []types.Point) (balls []Ball) {
+func ApproxBounding(points []aggregation.Point) (balls []Ball) {
 	balls = make([]Ball, len(points))
 
 	var lastBall Ball = Ball{}

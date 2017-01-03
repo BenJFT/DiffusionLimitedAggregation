@@ -13,7 +13,6 @@ import (
 	"github.com/Benjft/DiffusionLimitedAggregation/util"
 	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/svg"
 	"github.com/Benjft/DiffusionLimitedAggregation/util/encoding/xyz"
-	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
 
 	"github.com/skratchdot/open-golang/open"
 	"github.com/gonum/plot"
@@ -27,28 +26,36 @@ func init() {
 	os.Mkdir("out", os.ModeDir)
 	os.Mkdir("out\\plot", os.ModeDir)
 	os.Mkdir("out\\saves", os.ModeDir)
+
+	gob.Register(RunState{})
 }
 
+
+type RunState struct {
+	NPoints, NDimension, NRuns, Seed int64
+	Sticking float64
+	Points [][]aggregation.Point
+}
 var (
-	lastRun = types.Run{}
+	lastRun = RunState{}
 )
 
-func run(nPoints, seed, nDimension int64, sticking float64, chanel chan []types.Point) {
+func run(nPoints, seed, nDimension int64, sticking float64, chanel chan []aggregation.Point) {
 	chanel <- aggregation.RunNew(nPoints, seed, nDimension, sticking)
 }
 func Run(nPoints, nRuns, seed, nDimension int64, sticking float64) {
-	var channels []chan []types.Point = make([]chan []types.Point, nRuns)
+	var channels []chan []aggregation.Point = make([]chan []aggregation.Point, nRuns)
 
 	rand.Seed(seed)
 	for i := range channels {
-		var channel chan []types.Point = make(chan []types.Point)
+		var channel chan []aggregation.Point = make(chan []aggregation.Point)
 		go run(nPoints, rand.Int63(), nDimension, sticking, channel)
 		channels[i] = channel
 	}
 
 	var (
 		runSuccessful bool = true
-		points [][]types.Point = make([][]types.Point, nRuns)
+		points [][]aggregation.Point = make([][]aggregation.Point, nRuns)
 	)
 	for i, channel := range channels {
 		state := <-channel
@@ -61,7 +68,7 @@ func Run(nPoints, nRuns, seed, nDimension int64, sticking float64) {
 	}
 
 	if runSuccessful {
-		lastRun = types.Run {
+		lastRun = RunState{
 			NPoints: nPoints,
 			NDimension: nDimension,
 			NRuns: nRuns,
@@ -72,7 +79,7 @@ func Run(nPoints, nRuns, seed, nDimension int64, sticking float64) {
 	}
 }
 
-func draw3D(state []types.Point, title string, display bool) {
+func draw3D(state []aggregation.Point, title string, display bool) {
 	var name string = fmt.Sprintf("out\\plot\\%s.%s", title, "xyz")
 	file, err := os.Create(name)
 	if err != nil {
@@ -95,7 +102,7 @@ func draw3D(state []types.Point, title string, display bool) {
 		}
 	}
 }
-func draw2D(state []types.Point, title string, display bool) {
+func draw2D(state []aggregation.Point, title string, display bool) {
 	name := fmt.Sprintf("out\\plot\\%s.svg", title)
 	file, err := os.Create(name)
 	if err != nil {
@@ -176,7 +183,7 @@ func Load(title string) {
 	defer file.Close()
 
 	decoder := gob.NewDecoder(file)
-	var tmpRun types.Run
+	var tmpRun RunState
 	err = decoder.Decode(&tmpRun)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -186,7 +193,7 @@ func Load(title string) {
 	lastRun = tmpRun
 }
 
-func radii(run []types.Point, chanel chan []analysis.Ball) {
+func radii(run []aggregation.Point, chanel chan []analysis.Ball) {
 	chanel <- analysis.ApproxBounding(run)
 }
 func Radii() {

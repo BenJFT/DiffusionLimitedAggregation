@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-
-	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
 )
 
 const (
@@ -13,20 +11,37 @@ const (
 	BORDER_CONST float64 = 3
 )
 
+type Point3D struct {
+	X, Y, Z int64
+}
+
+func (p Point3D) Coordinates() []int64 {
+	return []int64{p.X, p.Y, p.Z}
+}
+
+func (p Point3D) SquareDistance(coords []float64) float64 {
+	var dx, dy, dz float64
+	dx = float64(p.X) - coords[0]
+	dy = float64(p.Y) - coords[1]
+	dz = float64(p.Z) - coords[2]
+
+	return dx*dx + dy*dy + dz*dz
+}
+
 type cache struct {
-	point types.Point3D
+	point Point3D
 	pointRadius float64
 
 	rng *rand.Rand
 	lastWalk int64
 
-	state map[types.Point3D]int64
+	state map[Point3D]int64
 	stateRadius float64
 
 	borderRadius float64
 	borderRadiusInt int64
 
-	tempPoint types.Point3D
+	tempPoint Point3D
 	tempA float64
 	tempB float64
 }
@@ -213,11 +228,11 @@ func (c *cache) pointHasNeighbor() bool {
 }
 
 // runs a new 3d aggregation simulation and returns the finished state
-func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[types.Point3D]int64 {
+func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[Point3D]int64 {
 
 	c := cache{}
 	c.rng = rng
-	c.state = make(map[types.Point3D]int64, nPoints)
+	c.state = make(map[Point3D]int64, nPoints)
 	c.state[c.point] = 0
 	c.updateStateRadius()
 

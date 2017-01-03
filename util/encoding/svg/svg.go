@@ -4,10 +4,57 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
+	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 )
+type HSVA struct {
+	H, S, V, A float64
+}
 
-func DrawAggregate(points []types.Point) string {
+func (hsva HSVA) RGBA() (r, g, b, a uint32) {
+	const (
+		max32 = float64(math.MaxUint32)
+	)
+	var (
+		H, S, V = hsva.H, hsva.S, hsva.V
+		zone = math.Floor(H * 6)
+		part = H * 6 - zone
+		low = V * (1 - S)
+		midA = V * (1 - part*S)
+		midB = V * (1 - (1-part)*S)
+	)
+
+	switch uint8(zone) % 6 {
+	case 0:
+		r = uint32(max32 * V)
+		g = uint32(max32 * midB)
+		b = uint32(max32 * low)
+	case 1:
+		r = uint32(max32 * midA)
+		g = uint32(max32 * V)
+		b = uint32(max32 * low)
+	case 2:
+		r = uint32(max32 * low)
+		g = uint32(max32 * V)
+		b = uint32(max32 * midB)
+	case 3:
+		r = uint32(max32 * low)
+		g = uint32(max32 * midA)
+		b = uint32(max32 * V)
+	case 4:
+		r = uint32(max32 * midB)
+		g = uint32(max32 * low)
+		b = uint32(max32 * V)
+	case 5:
+		r = uint32(max32 * V)
+		g = uint32(max32 * low)
+		b = uint32(max32 * midA)
+	}
+
+	a = uint32(max32 * hsva.A)
+	return r, g, b, a
+}
+
+func DrawAggregate(points []aggregation.Point) string {
 	const (
 		width int64 = 10
 	)
@@ -15,7 +62,7 @@ func DrawAggregate(points []types.Point) string {
 	var (
 		strOut string = "<?xml version='1.0' encoding='UTF-8'?>\n"
 		strBody string = ""
-		hsv types.HSVA = types.HSVA{H: 0, S: 1, V: 0.8, A: 1}
+		hsv HSVA = HSVA{H: 0, S: 1, V: 0.8, A: 1}
 		N int = len(points)
 
 		minX, minY, maxX, maxY int64

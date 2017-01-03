@@ -3,10 +3,10 @@ package xyz
 import (
 	"fmt"
 
-	"github.com/Benjft/DiffusionLimitedAggregation/util/types"
+	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 )
 
-func Format(points []types.Point) string {
+func Format(points []aggregation.Point) string {
 	var strOut, strFrame string
 	for _, point := range points {
 		var x, y, z float64
@@ -16,7 +16,7 @@ func Format(points []types.Point) string {
 		if len(coords) > 2 {
 			z = float64(coords[2])
 		}
-		strFrame += fmt.Sprintf("  C        %f        %f        %f\n", x, y, z)
+		strFrame += fmt.Sprintf("  C %f %f %f\n", x, y, z)
 
 	}
 	N := len(points)
