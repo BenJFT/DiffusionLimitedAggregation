@@ -29,21 +29,21 @@ func (p Point3D) SquareDistance(coords []float64) float64 {
 }
 
 type cache struct {
-	point Point3D
+	point       Point3D
 	pointRadius float64
 
-	rng *rand.Rand
+	rng      *rand.Rand
 	lastWalk int64
 
-	state map[Point3D]int64
+	state       map[Point3D]int64
 	stateRadius float64
 
-	borderRadius float64
+	borderRadius    float64
 	borderRadiusInt int64
 
 	tempPoint Point3D
-	tempA float64
-	tempB float64
+	tempA     float64
+	tempB     float64
 }
 
 func (c *cache) updateCurrPointRadius() {
@@ -65,8 +65,8 @@ func (c *cache) pointIn() (ok bool) {
 
 // resets the location of the current point to some location on the border
 func (c *cache) pointToBorder() {
-	c.tempA = 2*math.Pi*c.rng.Float64()
-	c.tempB = 2*math.Pi*c.rng.Float64()
+	c.tempA = 2 * math.Pi * c.rng.Float64()
+	c.tempB = 2 * math.Pi * c.rng.Float64()
 
 	c.point.X = int64(math.Sin(c.tempA) * math.Sin(c.tempB) * c.borderRadius)
 	c.point.Y = int64(math.Cos(c.tempA) * math.Sin(c.tempB) * c.borderRadius)
@@ -85,7 +85,7 @@ func (c *cache) walkPoint() {
 			point.X--
 		} else {
 			if point.X > c.borderRadiusInt {
-				point.X -= 2*c.borderRadiusInt
+				point.X -= 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 0
 		}
@@ -95,7 +95,7 @@ func (c *cache) walkPoint() {
 			point.X++
 		} else {
 			if point.X < -c.borderRadiusInt {
-				point.X += 2*c.borderRadiusInt
+				point.X += 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 1
 		}
@@ -105,7 +105,7 @@ func (c *cache) walkPoint() {
 			point.Y--
 		} else {
 			if point.Y > c.borderRadiusInt {
-				point.Y -= 2*c.borderRadiusInt
+				point.Y -= 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 2
 		}
@@ -115,7 +115,7 @@ func (c *cache) walkPoint() {
 			point.Y++
 		} else {
 			if point.Y < -c.borderRadiusInt {
-				point.Y += 2*c.borderRadiusInt
+				point.Y += 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 3
 		}
@@ -125,7 +125,7 @@ func (c *cache) walkPoint() {
 			point.Z--
 		} else {
 			if point.Z > c.borderRadiusInt {
-				point.Z -= 2*c.borderRadiusInt
+				point.Z -= 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 4
 		}
@@ -135,7 +135,7 @@ func (c *cache) walkPoint() {
 			point.Z++
 		} else {
 			if point.Z < -c.borderRadiusInt {
-				point.Z += 2*c.borderRadiusInt
+				point.Z += 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 5
 		}
@@ -218,13 +218,12 @@ func (c *cache) downIn() (ok bool) {
 
 // returns true if any adjacent site is occupied
 func (c *cache) pointHasNeighbor() bool {
-	return c.pointRadius <= c.stateRadius+1 && (
-		c.isLeftIn() ||
-			c.isUpIn() ||
-			c.isFrontIn() ||
-			c.isRightIn() ||
-			c.isDownIn() ||
-			c.isBackIn())
+	return c.pointRadius <= c.stateRadius+1 && (c.isLeftIn() ||
+		c.isUpIn() ||
+		c.isFrontIn() ||
+		c.isRightIn() ||
+		c.isDownIn() ||
+		c.isBackIn())
 }
 
 // runs a new 3d aggregation simulation and returns the finished state

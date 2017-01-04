@@ -20,34 +20,33 @@ func (p Point2D) Coordinates() []int64 {
 
 func (p Point2D) SquareDistance(coords []float64) float64 {
 	var (
-		ix, iy int64 = p.X, p.Y
+		ix, iy int64   = p.X, p.Y
 		fx, fy float64 = float64(ix), float64(iy)
-		x, y float64 = coords[0], coords[1]
-		dx float64 = fx - x
-		dy float64 = fy - y
+		x, y   float64 = coords[0], coords[1]
+		dx     float64 = fx - x
+		dy     float64 = fy - y
 	)
 	return dx*dx + dy*dy
 }
-
 
 // caching structure. Exists as an optimisation by preventing memory reassignment, this helps reduce time spent in
 // garbage collection, and helps keep variables in the cpu register or caches. Early implementations of this gave a
 // a significant speedup
 type cache struct {
-	point           Point2D
-	pointRadius     float64
+	point       Point2D
+	pointRadius float64
 
-	rng             *rand.Rand
-	lastWalk        int64
+	rng      *rand.Rand
+	lastWalk int64
 
-	state           map[Point2D]int64
-	stateRadius     float64
+	state       map[Point2D]int64
+	stateRadius float64
 
 	borderRadius    float64
 	borderRadiusInt int64
 
-	tempPoint       Point2D
-	tempFloat       float64
+	tempPoint Point2D
+	tempFloat float64
 }
 
 // operations acting on the caching structure. These (mostly) avoid creating any memory within themselves
@@ -72,7 +71,7 @@ func (c *cache) pointIn() (ok bool) {
 
 // resets the location of the current point to some location on the border
 func (c *cache) pointToBorder() {
-	c.tempFloat = 2*math.Pi*c.rng.Float64()
+	c.tempFloat = 2 * math.Pi * c.rng.Float64()
 	c.point.X = int64(math.Sin(c.tempFloat) * c.borderRadius)
 	c.point.Y = int64(math.Cos(c.tempFloat) * c.borderRadius)
 	c.updateCurrPointRadius()
@@ -88,7 +87,7 @@ func (c *cache) walkPoint() {
 			point.X--
 		} else {
 			if point.X > c.borderRadiusInt {
-				point.X -= 2*c.borderRadiusInt
+				point.X -= 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 0
 		}
@@ -98,7 +97,7 @@ func (c *cache) walkPoint() {
 			point.X++
 		} else {
 			if point.X < -c.borderRadiusInt {
-				point.X += 2*c.borderRadiusInt
+				point.X += 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 1
 		}
@@ -108,7 +107,7 @@ func (c *cache) walkPoint() {
 			point.Y--
 		} else {
 			if point.Y > c.borderRadiusInt {
-				point.Y -= 2*c.borderRadiusInt
+				point.Y -= 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 2
 		}
@@ -118,7 +117,7 @@ func (c *cache) walkPoint() {
 			point.Y++
 		} else {
 			if point.Y < -c.borderRadiusInt {
-				point.Y += 2*c.borderRadiusInt
+				point.Y += 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 3
 		}
@@ -176,7 +175,7 @@ func (c *cache) downIn() (ok bool) {
 
 // returns true if any adjacent site is occupied
 func (c *cache) pointHasNeighbor() bool {
-	return c.pointRadius <= c.stateRadius+1 && ( c.isLeftIn() || c.isUpIn() || c.isRightIn() || c.isDownIn() )
+	return c.pointRadius <= c.stateRadius+1 && (c.isLeftIn() || c.isUpIn() || c.isRightIn() || c.isDownIn())
 }
 
 // runs a new 2d aggregation simulation and returns the finished state

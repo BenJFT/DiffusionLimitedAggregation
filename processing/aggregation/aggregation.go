@@ -1,9 +1,9 @@
 package aggregation
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math/rand"
-	"encoding/gob"
 
 	"github.com/Benjft/DiffusionLimitedAggregation/aggregation/agg2D"
 	"github.com/Benjft/DiffusionLimitedAggregation/aggregation/agg3D"
@@ -45,8 +45,10 @@ func Run3D(nPoints, seed int64, sticking float64) (points []Point) {
 
 func RunNew(nPoints, seed, nDimension int64, sticking float64) []Point {
 	switch nDimension {
-	case 2:	return Run2D(nPoints, seed, sticking)
-	case 3: return Run3D(nPoints, seed, sticking)
+	case 2:
+		return Run2D(nPoints, seed, sticking)
+	case 3:
+		return Run3D(nPoints, seed, sticking)
 	default:
 		fmt.Printf("%d dimensions not supported\n", nDimension)
 		return nil
