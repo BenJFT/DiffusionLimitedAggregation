@@ -1,8 +1,8 @@
 package analysis
 
 import (
-	"math"
 	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
+	"math"
 )
 
 type Ball struct {
@@ -15,7 +15,7 @@ func extendTo(ball *Ball, p1 aggregation.Point) {
 		return
 	} else {
 		r := math.Sqrt(d2)
-		dr := (r - ball.Radius)/2
+		dr := (r - ball.Radius) / 2
 		coords := p1.Coordinates()
 		dCoords := make([]float64, len(coords))
 		for i, x := range coords {
@@ -23,7 +23,7 @@ func extendTo(ball *Ball, p1 aggregation.Point) {
 		}
 
 		for i, x := range dCoords {
-			ball.Coords[i] += dr*x/r
+			ball.Coords[i] += dr * x / r
 		}
 		ball.Radius += dr
 		ball.SquareDistance = math.Pow(ball.Radius, 2)

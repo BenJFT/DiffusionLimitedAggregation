@@ -6,6 +6,7 @@ import (
 
 	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
 )
+
 type HSVA struct {
 	H, S, V, A float64
 }
@@ -16,11 +17,11 @@ func (hsva HSVA) RGBA() (r, g, b, a uint32) {
 	)
 	var (
 		H, S, V = hsva.H, hsva.S, hsva.V
-		zone = math.Floor(H * 6)
-		part = H * 6 - zone
-		low = V * (1 - S)
-		midA = V * (1 - part*S)
-		midB = V * (1 - (1-part)*S)
+		zone    = math.Floor(H * 6)
+		part    = H*6 - zone
+		low     = V * (1 - S)
+		midA    = V * (1 - part*S)
+		midB    = V * (1 - (1-part)*S)
 	)
 
 	switch uint8(zone) % 6 {
@@ -60,25 +61,25 @@ func DrawAggregate(points []aggregation.Point) string {
 	)
 
 	var (
-		strOut string = "<?xml version='1.0' drawing='UTF-8'?>\n"
+		strOut  string = "<?xml version='1.0' drawing='UTF-8'?>\n"
 		strBody string = ""
-		hsv HSVA = HSVA{H: 0, S: 1, V: 0.8, A: 1}
-		N int = len(points)
+		hsv     HSVA   = HSVA{H: 0, S: 1, V: 0.8, A: 1}
+		N       int    = len(points)
 
 		minX, minY, maxX, maxY int64
 	)
 
 	for i, point := range points {
-		hsv.H = float64(i*300)/float64(N*360)
+		hsv.H = float64(i*300) / float64(N*360)
 
 		var (
-			coords []int64 = point.Coordinates()
-			x int64 = coords[0]
-			y int64 = coords[1]
-			r32, g32, b32, _ uint32 = hsv.RGBA()
-			r = uint8(float64(math.MaxUint8) * float64(r32) / float64(math.MaxUint32))
-			g = uint8(float64(math.MaxUint8) * float64(g32) / float64(math.MaxUint32))
-			b = uint8(float64(math.MaxUint8) * float64(b32) / float64(math.MaxUint32))
+			coords           []int64 = point.Coordinates()
+			x                int64   = coords[0]
+			y                int64   = coords[1]
+			r32, g32, b32, _ uint32  = hsv.RGBA()
+			r                        = uint8(float64(math.MaxUint8) * float64(r32) / float64(math.MaxUint32))
+			g                        = uint8(float64(math.MaxUint8) * float64(g32) / float64(math.MaxUint32))
+			b                        = uint8(float64(math.MaxUint8) * float64(b32) / float64(math.MaxUint32))
 		)
 
 		if x < minX {
@@ -94,7 +95,7 @@ func DrawAggregate(points []aggregation.Point) string {
 
 		line := fmt.Sprintf(
 			"<circle cx='%d' cy='%d' r='%d' fill='rgb(%d,%d,%d)' />\n",
-			x*width + width/2, y*width + width/2, width/2, r, g, b)
+			x*width+width/2, y*width+width/2, width/2, r, g, b)
 		strBody += line
 	}
 	X := maxX - minX

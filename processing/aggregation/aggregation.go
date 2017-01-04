@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/Benjft/DiffusionLimitedAggregation/aggregation/agg2D"
-	"github.com/Benjft/DiffusionLimitedAggregation/aggregation/agg3D"
+	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/agg2D"
+	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/agg3D"
 )
 
 func init() {

@@ -1,26 +1,27 @@
 package main
 
 import (
-	"os"
-	"fmt"
 	"flag"
+	"fmt"
+	"os"
 	"strings"
 
-	"github.com/Benjft/DiffusionLimitedAggregation/util"
 	"github.com/Benjft/DiffusionLimitedAggregation/processing"
+	"github.com/Benjft/DiffusionLimitedAggregation/util"
 )
 
 var (
-	formats map[string]bool = map[string]bool {
-		"png": true,
-		"jpg": true,
+	formats map[string]bool = map[string]bool{
+		"png":  true,
+		"jpg":  true,
 		"jpeg": true,
-		"svg": true,
-		"tif": true,
+		"svg":  true,
+		"tif":  true,
 		"tiff": true,
 	}
 )
-type Handler func (args []string) (tail []string)
+
+type Handler func(args []string) (tail []string)
 
 func handleRun(args []string) (tail []string) {
 	var flags *flag.FlagSet
@@ -142,13 +143,12 @@ func handleLoad(args []string) (tail []string) {
 	return tail
 }
 
-
 var (
-	handles map[string]Handler = map[string]Handler {
-		"run": Handler(handleRun),
-		"draw": Handler(handleDraw),
-		"save": Handler(handleSave),
-		"load": Handler(handleLoad),
+	handles map[string]Handler = map[string]Handler{
+		"run":   Handler(handleRun),
+		"draw":  Handler(handleDraw),
+		"save":  Handler(handleSave),
+		"load":  Handler(handleLoad),
 		"radii": Handler(handleRadii),
 	}
 )

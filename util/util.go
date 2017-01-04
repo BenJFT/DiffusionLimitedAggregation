@@ -1,11 +1,11 @@
 package util
 
 import (
-	"os"
-	"math"
 	"bufio"
-	"strings"
 	"github.com/gonum/plot/plotter"
+	"math"
+	"os"
+	"strings"
 )
 
 func StringToArgs(str string) (args []string) {
@@ -21,6 +21,7 @@ func StringToArgs(str string) (args []string) {
 }
 
 var scanner = bufio.NewScanner(os.Stdin)
+
 func ReadStrOrEmpty() string {
 	b := scanner.Scan()
 	if b {
@@ -44,11 +45,10 @@ func Transpose(data [][]float64) [][]float64 {
 	return out
 }
 
-
 func LeastSquares(xys plotter.XYs) (a, b, ea, eb float64) {
 	var (
 		S2, SSxx, SSyy, SSxy, meanX, meanY float64
-		n float64 = float64(len(xys))
+		n                                  float64 = float64(len(xys))
 	)
 
 	// calculating sum of squares
@@ -72,10 +72,10 @@ func LeastSquares(xys plotter.XYs) (a, b, ea, eb float64) {
 	a = meanY - b*meanX
 
 	// find the standard error on each of these coefficients
-	S2 = (SSyy - b * SSxy) / (n - 2)
+	S2 = (SSyy - b*SSxy) / (n - 2)
 
-	ea = math.Sqrt( S2 * meanX*meanX/(SSxx * n) )
-	eb = math.Sqrt( S2/SSxx )
+	ea = math.Sqrt(S2 * meanX * meanX / (SSxx * n))
+	eb = math.Sqrt(S2 / SSxx)
 
 	return a, b, ea, eb
 }
