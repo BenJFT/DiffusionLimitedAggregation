@@ -98,7 +98,7 @@ func draw3D(state []aggregation.Point, title string) {
 	//handles writing the data to the opened file
 	writer := bufio.NewWriter(file)
 	// gets the plaintext formatting of the state as an xyz file
-	str := xyz.Format(state)
+	str := xyz.DrawAggregate(state)
 	// writes the bytes representing the string to the file
 	_, err = writer.Write([]byte(str))
 	if err != nil {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
+	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation"
 )
 
 type HSVA struct {

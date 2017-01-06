@@ -1,7 +1,7 @@
 package analysis
 
 import (
-	"github.com/Benjft/DiffusionLimitedAggregation/aggregation"
+	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation"
 	"math"
 )
 

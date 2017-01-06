@@ -55,18 +55,15 @@ func handleDraw(args []string) (tail []string) {
 	flags.SetOutput(os.Stdout)
 
 	var name string
-	var display bool
 
 	flags.StringVar(&name, "name", "", "The name for the file. (Default based on run args)")
-
-	flags.BoolVar(&display, "disp", false, "Auto open the drawn figures")
 
 	var err error = flags.Parse(args)
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		tail = flags.Args()
-		processing.Draw(name, display)
+		processing.Draw(name)
 	}
 	return tail
 }
@@ -75,20 +72,16 @@ func handleRadii(args []string) (tail []string) {
 	var flags *flag.FlagSet = flag.NewFlagSet("draw", flag.ContinueOnError)
 	flags.SetOutput(os.Stdout)
 
-	//var name string
-	//var display bool
+	var name string
 
-	//flags.StringVar(&name, "name", "", "The name for the file. (Default based on run args)")
-	//
-	//flags.BoolVar(&display, "disp", false, "Auto open the drawn figures")
+	flags.StringVar(&name, "name", "", "The name for the file. (Default based on run args)")
 
 	var err error = flags.Parse(args)
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		tail = flags.Args()
-		//processing.Draw(name, display)
-		processing.Radii()
+		processing.Radii(name)
 	}
 	return tail
 }
@@ -144,12 +137,12 @@ func handleLoad(args []string) (tail []string) {
 }
 
 var (
-	handles map[string]Handler = map[string]Handler{
-		"run":   Handler(handleRun),
-		"draw":  Handler(handleDraw),
-		"save":  Handler(handleSave),
-		"load":  Handler(handleLoad),
-		"radii": Handler(handleRadii),
+	handles map[string] func([]string) []string = map[string] func([]string) []string{
+		"run":   handleRun,
+		"draw":  handleDraw,
+		"save":  handleSave,
+		"load":  handleLoad,
+		"radii": handleRadii,
 	}
 )
 
