@@ -44,3 +44,47 @@ func ApproxBounding(points []aggregation.Point) (balls []Ball) {
 	}
 	return balls
 }
+
+//TODO radius of gyration http://mathworld.wolfram.com/RadiusofGyration.html
+
+type elem struct {
+	N int64
+	radius float64
+}
+func gyrationRadius(points []aggregation.Point, chanel chan elem) {
+	var mean []float64 = make([]float64, len(points[0].Coordinates()))
+	var N int64 = int64(len(points))
+	for _, p := range points {
+		for i, x := range p.Coordinates() {
+			mean[i] += float64(x)/float64(N)
+		}
+	}
+
+	var e elem = elem{N:N}
+	for _, p := range points {
+		e.radius += p.SquareDistance(mean)/float64(N)
+	}
+
+	e.radius = math.Sqrt(e.radius)
+
+	chanel <- e
+}
+
+func GyrationRadii(points []aggregation.Point) (radii []float64) {
+	radii = make([]float64, len(points))
+
+	var (
+		chanel chan elem = make(chan elem)
+	)
+
+	for i := range points {
+		go gyrationRadius(points[:i+1], chanel)
+	}
+
+	for range points {
+		e := <- chanel
+		radii[e.N-1] = e.radius
+	}
+
+	return radii
+}

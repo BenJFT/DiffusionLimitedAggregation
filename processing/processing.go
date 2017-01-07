@@ -232,34 +232,34 @@ func Load(title string) {
 // uses the approximate radius of the aggregate to plot log(N)/log(R) and find the fractal dimensions
 func Radii(title string) {
 	// open a channel and wait to receive the radius calculations for each run in the current loaded state
-	var channel chan []analysis.Ball = make(chan []analysis.Ball)
+	var channel chan []float64 = make(chan []float64)
 	for _, run := range loadedRun.Points {
 		go func(run []aggregation.Point) {
-			channel <- analysis.ApproxBounding(run)
+			channel <- analysis.GyrationRadii(run)
 		}(run)
 	}
 
 	radii := make([][]float64, loadedRun.NRuns)
 	for i := range loadedRun.Points {
-		radii[i] = make([]float64, loadedRun.NPoints)
-		runBalls := <-channel
-		for j, ball := range runBalls {
-			radii[i][j] = ball.Radius
-		}
+		radii[i] = <- channel//make([]float64, loadedRun.NPoints)
+		//runBalls := <-channel
+		//for j, ball := range runBalls {
+		//	radii[i][j] = ball.Radius
+		//}
 	}
 
 	// flip the arrays so that each row contains the radius for the same number of particles (makes plotting
 	// scatters and calculating error easier)
 	radii = util.Transpose(radii)
 
-	pts := make([]plotter.XYer, len(radii))
+	pts := make([]plotter.XYer, len(radii)-1)
 
 	// make arrays of points marking X=log(R) Y=log(N)
-	for i, r := range radii {
+	for i, r := range radii[1:] {
 		xys := make(plotter.XYs, len(r))
-		N := float64(i + 1)
+		N := float64(i + 2)
 		for j, y := range r {
-			xys[j].X = math.Log10(y + .5)
+			xys[j].X = math.Log10(y)
 			xys[j].Y = math.Log10(N)
 		}
 		pts[i] = xys
@@ -318,3 +318,5 @@ func Radii(title string) {
 		return
 	}
 }
+
+// TODO dimensions using radius of gyration and box counting

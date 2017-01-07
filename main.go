@@ -33,7 +33,7 @@ func handleRun(args []string) (tail []string) {
 
 	flags.Int64Var(&nPoints, "points", 2000, "the number of points to aggregate (Minimum 1)")
 	flags.Int64Var(&nRuns, "runs", 1, "the number of aggregates to run (Minimum 1)")
-	flags.Int64Var(&nDimension, "dimension", 2, "the number of dimensions (Minimum 2)")
+	flags.Int64Var(&nDimension, "dimension", 2, "the number of dimensions")
 	flags.Int64Var(&seed, "seed", 1, "the seed to run the set of simulations from")
 
 	flags.Float64Var(&sticking, "sticking", 1, "probability of a point sticking to an adjacent point per time step")
@@ -41,7 +41,7 @@ func handleRun(args []string) (tail []string) {
 	var err error = flags.Parse(args)
 	if err != nil {
 		fmt.Println(err.Error())
-	} else if nPoints < 1 || nRuns < 1 || nDimension < 2 || sticking <= 0 || sticking > 1 {
+	} else if nPoints < 1 || nRuns < 1 || nDimension < 1 || sticking <= 0 || sticking > 1 {
 		flags.PrintDefaults()
 	} else {
 		tail = flags.Args()
