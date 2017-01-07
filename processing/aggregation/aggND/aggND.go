@@ -142,13 +142,13 @@ func (c *cache) neighborIn() bool {
 		if i == c.stepAxis {
 			if c.stepSign > 0 {
 				c.tempPoint[i] += 1
-				if c.pointIn() {
+				if c.tempPointIn() {
 					return true
 				}
 				c.tempPoint[i] -= 1
 			} else {
 				c.tempPoint[i] -= 1
-				if c.pointIn() {
+				if c.tempPointIn() {
 					return true
 				}
 				c.tempPoint[i] += 1
