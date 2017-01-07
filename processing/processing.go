@@ -253,7 +253,6 @@ func Radii(title string) {
 	radii = util.Transpose(radii)
 
 	pts := make([]plotter.XYer, len(radii))
-	allXY := plotter.XYs{}
 
 	// make arrays of points marking X=log(R) Y=log(N)
 	for i, r := range radii {
@@ -264,11 +263,6 @@ func Radii(title string) {
 			xys[j].Y = math.Log10(N)
 		}
 		pts[i] = xys
-
-		// Ignore the first few as growth may be non typical
-		if i > len(radii)/50 {
-			allXY = append(allXY, xys...)
-		}
 	}
 
 	// create a new plot of the data
@@ -297,9 +291,9 @@ func Radii(title string) {
 	}
 
 	// calculate the regression coefficients and their respective errors
-	a, b, _, eb := util.LeastSquares(allXY)
+	a, b, _, eb := util.LeastSquares(mean95.XYs[len(mean95.XYs)/20:])
 	// Print the approximation of the fractal dimensions from the regression
-	fmt.Printf("D = %.3f \u00B1 %.3f\n", b, eb)
+	fmt.Printf("D = %.3f \u00B1 %.3f\n", b, eb*1.96) // multiply by 1.96 for 95% confidence interval
 	// add and label the Least Squares fit
 	label := fmt.Sprintf("y = %.3f + %.3fx", a, b)
 	fit := plotter.NewFunction(func(x float64) float64 { return a + b*x })

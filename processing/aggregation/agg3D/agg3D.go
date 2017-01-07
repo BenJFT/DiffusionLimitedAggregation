@@ -1,7 +1,6 @@
 package agg3D
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 )
@@ -236,15 +235,9 @@ func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[Point3D]int64 {
 	c.updateStateRadius()
 
 	for i := int64(1); i < nPoints; i++ {
-		if i == 32 {
-			print("")
-		}
 		c.pointToBorder()
 		for !c.pointHasNeighbor() || sticking < rng.Float64() {
 			c.walkPoint()
-		}
-		if _, ok := c.state[c.point]; ok {
-			panic(fmt.Sprintf("Something went wrong here! %d", i))
 		}
 		c.state[c.point] = i
 		if c.pointRadius > c.stateRadius {

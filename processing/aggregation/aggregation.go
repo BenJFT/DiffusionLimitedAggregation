@@ -2,11 +2,11 @@ package aggregation
 
 import (
 	"encoding/gob"
-	"fmt"
 	"math/rand"
 
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/agg2D"
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/agg3D"
+	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/aggND"
 )
 
 func init() {
@@ -43,6 +43,20 @@ func Run3D(nPoints, seed int64, sticking float64) (points []Point) {
 	return points
 }
 
+func RunND(nPoints, seed int64, sticking float64, dimension int64) (points []Point) {
+
+	var rng *rand.Rand = rand.New(rand.NewSource(seed))
+	var state = aggND.RunNew(nPoints, sticking, rng, dimension)
+
+	points = make([]Point, nPoints)
+
+	for i, p := range state {
+		points[i] = p
+	}
+
+	return points
+}
+
 func RunNew(nPoints, seed, nDimension int64, sticking float64) []Point {
 	switch nDimension {
 	case 2:
@@ -50,7 +64,6 @@ func RunNew(nPoints, seed, nDimension int64, sticking float64) []Point {
 	case 3:
 		return Run3D(nPoints, seed, sticking)
 	default:
-		fmt.Printf("%d dimensions not supported\n", nDimension)
-		return nil
+		return RunND(nPoints, seed, sticking, nDimension)
 	}
 }
