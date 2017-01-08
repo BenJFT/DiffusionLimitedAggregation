@@ -5,62 +5,14 @@ import (
 	"math"
 )
 
-type Ball struct {
-	Coords                 []float64
-	Radius, SquareDistance float64
-}
-
-func extendTo(ball *Ball, p1 aggregation.Point) {
-	if d2 := p1.SquareDistance(ball.Coords); d2 <= ball.SquareDistance {
-		return
-	} else {
-		r := math.Sqrt(d2)
-		dr := (r - ball.Radius) / 2
-		coords := p1.Coordinates()
-		dCoords := make([]float64, len(coords))
-		for i, x := range coords {
-			dCoords[i] = float64(x) - ball.Coords[i]
-		}
-
-		for i, x := range dCoords {
-			ball.Coords[i] += dr * x / r
-		}
-		ball.Radius += dr
-		ball.SquareDistance = math.Pow(ball.Radius, 2)
-	}
-}
-
-func ApproxBounding(points []aggregation.Point) (balls []Ball) {
-	balls = make([]Ball, len(points))
-
-	var lastBall Ball = Ball{}
-	lastBall.Coords = make([]float64, len(points[0].Coordinates()))
-
-	for i, p0 := range points {
-		var ball Ball = lastBall
-		extendTo(&ball, p0)
-		balls[i] = ball
-		lastBall = ball
-	}
-	return balls
-}
-
-//TODO radius of gyration http://mathworld.wolfram.com/RadiusofGyration.html
-
-type elem struct {
+type elemRadius struct {
 	N int64
 	radius float64
 }
-func gyrationRadius(points []aggregation.Point, chanel chan elem) {
-	var mean []float64 = make([]float64, len(points[0].Coordinates()))
+func gyrationRadius(points []aggregation.Point, mean []float64, chanel chan elemRadius) {
 	var N int64 = int64(len(points))
-	for _, p := range points {
-		for i, x := range p.Coordinates() {
-			mean[i] += float64(x)/float64(N)
-		}
-	}
 
-	var e elem = elem{N:N}
+	var e elemRadius = elemRadius{N:N}
 	for _, p := range points {
 		e.radius += p.SquareDistance(mean)/float64(N)
 	}
@@ -70,19 +22,42 @@ func gyrationRadius(points []aggregation.Point, chanel chan elem) {
 	chanel <- e
 }
 
+type elemMean struct {
+	N int64
+	mean []float64
+}
+func findMeans(points []aggregation.Point, means chan elemMean) {
+	var mean []float64
+	for i, p := range points {
+		coords := p.Coordinates()
+		ret := make([]float64, len(coords))
+		if mean == nil {
+			mean = make([]float64, len(coords))
+		}
+		for j, x := range coords {
+			mean[j] += float64(x)
+			ret[j] = mean[j]/float64(i+1)
+		}
+		means <- elemMean{N:int64(i+1),mean:ret}
+	}
+}
+
 func GyrationRadii(points []aggregation.Point) (radii []float64) {
 	radii = make([]float64, len(points))
 
 	var (
-		chanel chan elem = make(chan elem)
+		radii chan elemRadius = make(chan elemRadius)
+		means chan elemMean = make(chan elemMean)
 	)
 
-	for i := range points {
-		go gyrationRadius(points[:i+1], chanel)
+	go findMeans(points, means)
+	for range points {
+		e := <-means
+		go gyrationRadius(points[:e.N], e.mean, radii)
 	}
 
 	for range points {
-		e := <- chanel
+		e := <-radii
 		radii[e.N-1] = e.radius
 	}
 
