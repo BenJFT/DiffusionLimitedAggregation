@@ -61,7 +61,7 @@ func DrawAggregate(points []aggregation.Point) string {
 	)
 
 	var (
-		strOut  string = "<?xml version='1.0' drawing='UTF-8'?>\n"
+		strOut  string = "<?xml version='1.0'?>\n"
 		strBody string = ""
 		hsv     HSVA   = HSVA{H: 0, S: 1, V: 0.8, A: 1}
 		N       int    = len(points)
@@ -98,13 +98,19 @@ func DrawAggregate(points []aggregation.Point) string {
 			x*width+width/2, y*width+width/2, width/2, r, g, b)
 		strBody += line
 	}
-	X := maxX - minX
-	Y := maxY - minY
+	var (
+		wMax int64 = 1600
+		hMax int64 = 900
+		dX = maxX - minX
+		dY = maxY - minY
+
+		scale = math.Min(float64(wMax)/float64(dX*width+width), float64(hMax)/float64(dY*width+width))
+	)
 	strOut += fmt.Sprintf("<svg xmlns='http://www.w3.org/2000/svg' version='1.1' width='%d' height='%d'>\n",
-		X*width+width, Y*width+width)
-	strOut += fmt.Sprintf("<g transform='translate(%d,%d)'>\n", -minX*width, -minY*width)
+		wMax, hMax)
+	strOut += fmt.Sprintf("<g transform='scale(%f)'>\n<g transform='translate(%d,%d)'>\n", scale, -minX*width, -minY*width)
 	strOut += strBody
-	strOut += "</g>\n"
+	strOut += "</g>\n</g>\n"
 	strOut += "</svg>\n"
 	return strOut
 }
