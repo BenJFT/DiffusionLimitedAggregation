@@ -55,10 +55,9 @@ func (hsva HSVA) RGBA() (r, g, b, a uint32) {
 	return r, g, b, a
 }
 
+// Draws the aggregate to an svg file. points are coloured according to when they were added to the set. Hue rotates
+// from 0 to 300/360 over the range for clear contrast
 func DrawAggregate(points []aggregation.Point) string {
-	const (
-		width int64 = 10
-	)
 
 	var (
 		strOut  string = "<?xml version='1.0'?>\n"
@@ -69,7 +68,9 @@ func DrawAggregate(points []aggregation.Point) string {
 		minX, minY, maxX, maxY int64
 	)
 
+	// iterates over the set of points and adds them to the file at their known locations
 	for i, point := range points {
+		// rotate the hue
 		hsv.H = float64(i*300) / float64(N*360)
 
 		var (
@@ -82,6 +83,7 @@ func DrawAggregate(points []aggregation.Point) string {
 			b                        = uint8(float64(math.MaxUint8) * float64(b32) / float64(math.MaxUint32))
 		)
 
+		// update the min/max coords
 		if x < minX {
 			minX = x
 		} else if x > maxX {
@@ -93,24 +95,27 @@ func DrawAggregate(points []aggregation.Point) string {
 			maxY = y
 		}
 
-		line := fmt.Sprintf(
-			"<circle cx='%d' cy='%d' r='%d' fill='rgb(%d,%d,%d)' />\n",
-			x*width+width/2, y*width+width/2, width/2, r, g, b)
-		strBody += line
+		// concatenate the new line to the end of the body
+		strBody += fmt.Sprintf(
+			"<circle cx='%f' cy='%f' r='%f' fill='rgb(%d,%d,%d)' />\n",
+			float64(x)+0.5, float64(y)+0.5, 0.5, r, g, b)
 	}
+
 	var (
 		wMax int64 = 1600
 		hMax int64 = 900
-		dX = maxX - minX
-		dY = maxY - minY
+		dX         = maxX - minX
+		dY         = maxY - minY
 
-		scale = math.Min(float64(wMax)/float64(dX*width+width), float64(hMax)/float64(dY*width+width))
+		scale = math.Min(float64(wMax)/float64(dX+1), float64(hMax)/float64(dY+1))
+		width, height = scale*float64(dX+1), scale*float64(dY*1)
 	)
-	strOut += fmt.Sprintf("<svg xmlns='http://www.w3.org/2000/svg' version='1.1' width='%d' height='%d'>\n",
-		wMax, hMax)
-	strOut += fmt.Sprintf("<g transform='scale(%f)'>\n<g transform='translate(%d,%d)'>\n", scale, -minX*width, -minY*width)
+	// write all info required for the svg file.
+	strOut += fmt.Sprintf("<svg xmlns='http://www.w3.org/2000/svg' version='1.1' width='%f' height='%f'>\n",
+		width, height)
+	strOut += fmt.Sprintf("<g transform='scale(%f) translate(%d,%d)'>\n", scale, -minX, -minY)
 	strOut += strBody
-	strOut += "</g>\n</g>\n"
+	strOut += "</g>\n"
 	strOut += "</svg>\n"
 	return strOut
 }

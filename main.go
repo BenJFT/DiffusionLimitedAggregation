@@ -137,7 +137,7 @@ func handleLoad(args []string) (tail []string) {
 }
 
 var (
-	handles map[string] func([]string) []string = map[string] func([]string) []string{
+	handles map[string]func([]string) []string = map[string]func([]string) []string{
 		"run":   handleRun,
 		"draw":  handleDraw,
 		"save":  handleSave,

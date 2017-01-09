@@ -6,6 +6,7 @@ import (
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation"
 )
 
+// writes the 3D aggregate as an XYZ molecule file.
 func DrawAggregate(points []aggregation.Point) string {
 	var strOut, strFrame string
 	for _, point := range points {

@@ -1,15 +1,22 @@
 package agg3D
 
 import (
+	"encoding/gob"
 	"math"
 	"math/rand"
 )
+
+func init() {
+	// register the point structure to allow it to be saved and loaded
+	gob.Register(Point3D{})
+}
 
 const (
 	BORDER_SCALE float64 = 1.5
 	BORDER_CONST float64 = 3
 )
 
+// Specialised point structure for a point in 3D. Implements methods required for the Point interface in aggregation
 type Point3D struct {
 	X, Y, Z int64
 }
@@ -27,6 +34,8 @@ func (p Point3D) SquareDistance(coords []float64) float64 {
 	return dx*dx + dy*dy + dz*dz
 }
 
+// Structure implemented to remove most, if not all, garbage collector overhead by preallocating all memory to be used
+// by the simulation
 type cache struct {
 	point       Point3D
 	pointRadius float64
@@ -62,7 +71,7 @@ func (c *cache) pointIn() (ok bool) {
 
 }
 
-// resets the location of the current point to some location on the border
+// resets the location of the current point to some location on a sphere touching the border
 func (c *cache) pointToBorder() {
 	c.tempA = 2 * math.Pi * c.rng.Float64()
 	c.tempB = 2 * math.Pi * c.rng.Float64()
@@ -77,64 +86,69 @@ func (c *cache) pointToBorder() {
 // moves the current point by one, applies periodic boundaries and will not move onto a site which is occupied
 func (c *cache) walkPoint() {
 
-	switch point := &c.point; c.rng.Int63n(6) {
+	// choose a random from six directions and attempt to walk in that direction
+	switch c.rng.Int63n(6) {
 	case 0:
-		point.X++
+		c.point.X++
+		// if the point is already occupied return to the starting position
 		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
-			point.X--
+			c.point.X--
 		} else {
-			if point.X > c.borderRadiusInt {
-				point.X -= 2 * c.borderRadiusInt
+			// if the point has stepped over the boundary coordinates wrap it to the other side
+			if c.point.X > c.borderRadiusInt {
+				c.point.X -= 2 * c.borderRadiusInt
 			}
+			// save the direction it moved to speed up neighbor checks later
 			c.lastWalk = 0
 		}
+	// repeat as above for other directions
 	case 1:
-		point.X--
+		c.point.X--
 		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
-			point.X++
+			c.point.X++
 		} else {
-			if point.X < -c.borderRadiusInt {
-				point.X += 2 * c.borderRadiusInt
+			if c.point.X < -c.borderRadiusInt {
+				c.point.X += 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 1
 		}
 	case 2:
-		point.Y++
+		c.point.Y++
 		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
-			point.Y--
+			c.point.Y--
 		} else {
-			if point.Y > c.borderRadiusInt {
-				point.Y -= 2 * c.borderRadiusInt
+			if c.point.Y > c.borderRadiusInt {
+				c.point.Y -= 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 2
 		}
 	case 3:
-		point.Y--
+		c.point.Y--
 		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
-			point.Y++
+			c.point.Y++
 		} else {
-			if point.Y < -c.borderRadiusInt {
-				point.Y += 2 * c.borderRadiusInt
+			if c.point.Y < -c.borderRadiusInt {
+				c.point.Y += 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 3
 		}
 	case 4:
-		point.Z++
+		c.point.Z++
 		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
-			point.Z--
+			c.point.Z--
 		} else {
-			if point.Z > c.borderRadiusInt {
-				point.Z -= 2 * c.borderRadiusInt
+			if c.point.Z > c.borderRadiusInt {
+				c.point.Z -= 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 4
 		}
 	case 5:
-		point.Z--
+		c.point.Z--
 		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
-			point.Z++
+			c.point.Z++
 		} else {
-			if point.Z < -c.borderRadiusInt {
-				point.Z += 2 * c.borderRadiusInt
+			if c.point.Z < -c.borderRadiusInt {
+				c.point.Z += 2 * c.borderRadiusInt
 			}
 			c.lastWalk = 5
 		}
@@ -144,11 +158,13 @@ func (c *cache) walkPoint() {
 }
 
 // tests if the adjacent cite in the +x direction is occupied
-func (c *cache) isLeftIn() bool {
-	// check is if site in only if did not come from that direction as walk check is much faster
-	return c.lastWalk != 1 && c.leftIn()
+func (c *cache) isRightIn() bool {
+	// check is if site in only if did not come from that direction. equivalence is faster to check, so results in
+	// cumulative gains over many loops
+	return c.lastWalk != 1 && c.rightIn()
 }
-func (c *cache) leftIn() (ok bool) {
+// checks if the point one space to the right is in the set of points
+func (c *cache) rightIn() (ok bool) {
 	c.tempPoint = c.point
 	c.tempPoint.X++
 	_, ok = c.state[c.tempPoint]
@@ -156,11 +172,10 @@ func (c *cache) leftIn() (ok bool) {
 }
 
 // tests if the adjacent cite in the -x direction is occupied
-func (c *cache) isRightIn() bool {
-	// check is if site in only if did not come from that direction as walk check is much faster
-	return c.lastWalk != 0 && c.rightIn()
+func (c *cache) isLeftIn() bool {
+	return c.lastWalk != 0 && c.leftIn()
 }
-func (c *cache) rightIn() (ok bool) {
+func (c *cache) leftIn() (ok bool) {
 	c.tempPoint = c.point
 	c.tempPoint.X--
 	_, ok = c.state[c.tempPoint]
@@ -169,7 +184,6 @@ func (c *cache) rightIn() (ok bool) {
 
 // tests if the adjacent cite in the +y direction is occupied
 func (c *cache) isFrontIn() bool {
-	// check is if site in only if did not come from that direction as walk check is much faster
 	return c.lastWalk != 3 && c.frontIn()
 }
 func (c *cache) frontIn() (ok bool) {
@@ -181,7 +195,6 @@ func (c *cache) frontIn() (ok bool) {
 
 // tests if the adjacent cite in the -y direction is occupied
 func (c *cache) isBackIn() bool {
-	// check is if site in only if did not come from that direction as walk check is much faster
 	return c.lastWalk != 2 && c.backIn()
 }
 func (c *cache) backIn() (ok bool) {
@@ -193,7 +206,6 @@ func (c *cache) backIn() (ok bool) {
 
 // tests if the adjacent cite in the +z direction is occupied
 func (c *cache) isUpIn() bool {
-	// check is if site in only if did not come from that direction as walk check is much faster
 	return c.lastWalk != 5 && c.upIn()
 }
 func (c *cache) upIn() (ok bool) {
@@ -205,7 +217,6 @@ func (c *cache) upIn() (ok bool) {
 
 // tests if the adjacent cite in the -z direction is occupied
 func (c *cache) isDownIn() bool {
-	// check is if site in only if did not come from that direction as walk check is much faster
 	return c.lastWalk != 4 && c.downIn()
 }
 func (c *cache) downIn() (ok bool) {
@@ -217,6 +228,9 @@ func (c *cache) downIn() (ok bool) {
 
 // returns true if any adjacent site is occupied
 func (c *cache) pointHasNeighbor() bool {
+	// evaluation order allows for speedup as the majority of the particles time may be spent far from the aggregate
+	// checking if it is near first allows much calculation to be skipped when it is far, without introducing much
+	// overhead while close
 	return c.pointRadius <= c.stateRadius+1 && (c.isLeftIn() ||
 		c.isUpIn() ||
 		c.isFrontIn() ||
@@ -227,19 +241,24 @@ func (c *cache) pointHasNeighbor() bool {
 
 // runs a new 3d aggregation simulation and returns the finished state
 func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[Point3D]int64 {
-
+	// initialize variables
 	c := cache{}
 	c.rng = rng
 	c.state = make(map[Point3D]int64, nPoints)
 	c.state[c.point] = 0
 	c.updateStateRadius()
 
+	// add points one at a time
 	for i := int64(1); i < nPoints; i++ {
+		// move the working point to the border
 		c.pointToBorder()
+		// walk the point until it sticks to a neighbor
 		for !c.pointHasNeighbor() || sticking < rng.Float64() {
 			c.walkPoint()
 		}
+		// add the point to the set
 		c.state[c.point] = i
+		// update the state as necessary
 		if c.pointRadius > c.stateRadius {
 			c.updateStateRadius()
 		}

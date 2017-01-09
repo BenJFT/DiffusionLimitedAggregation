@@ -1,7 +1,6 @@
 package aggregation
 
 import (
-	"encoding/gob"
 	"math/rand"
 
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/agg2D"
@@ -9,16 +8,13 @@ import (
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/aggND"
 )
 
-func init() {
-	gob.Register(agg2D.Point2D{})
-	gob.Register(agg3D.Point3D{})
-}
-
+// general interface required for points. Makes no assumptions of dimensionality
 type Point interface {
 	Coordinates() []int64
 	SquareDistance(coords []float64) float64
 }
 
+// runs the specialised case of a 2D simulation
 func Run2D(nPoints, seed int64, sticking float64) (points []Point) {
 
 	var rng *rand.Rand = rand.New(rand.NewSource(seed))
@@ -31,6 +27,7 @@ func Run2D(nPoints, seed int64, sticking float64) (points []Point) {
 	return points
 }
 
+// runs the specialised case of a 3D simulation
 func Run3D(nPoints, seed int64, sticking float64) (points []Point) {
 
 	var rng *rand.Rand = rand.New(rand.NewSource(seed))
@@ -43,6 +40,7 @@ func Run3D(nPoints, seed int64, sticking float64) (points []Point) {
 	return points
 }
 
+// Runs the simulation in any number of spatial dimensions
 func RunND(nPoints, seed int64, sticking float64, dimension int64) (points []Point) {
 
 	var rng *rand.Rand = rand.New(rand.NewSource(seed))
@@ -57,6 +55,7 @@ func RunND(nPoints, seed int64, sticking float64, dimension int64) (points []Poi
 	return points
 }
 
+// runs the most suitable simulation for the number of dimensions
 func RunNew(nPoints, seed, nDimension int64, sticking float64) []Point {
 	switch nDimension {
 	case 2:

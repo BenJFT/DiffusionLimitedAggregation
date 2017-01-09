@@ -241,7 +241,7 @@ func Radii(title string) {
 
 	radii := make([][]float64, loadedRun.NRuns)
 	for i := range loadedRun.Points {
-		radii[i] = <- channel//make([]float64, loadedRun.NPoints)
+		radii[i] = <-channel //make([]float64, loadedRun.NPoints)
 		//runBalls := <-channel
 		//for j, ball := range runBalls {
 		//	radii[i][j] = ball.Radius
@@ -254,7 +254,7 @@ func Radii(title string) {
 
 	pts := make([]plotter.XYer, len(radii)-1)
 
-	// make arrays of points marking X=log(R) Y=log(N)
+	// make arrays of points marking X=log(R) Y=log(N). Skips the first point as R(N=1) = 0
 	for i, r := range radii[1:] {
 		xys := make(plotter.XYs, len(r))
 		N := float64(i + 2)
@@ -318,5 +318,3 @@ func Radii(title string) {
 		return
 	}
 }
-
-// TODO dimensions using radius of gyration and box counting

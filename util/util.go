@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// splits a string at the spaces. Any double spacing is treated as single space
 func StringToArgs(str string) (args []string) {
 	args = make([]string, 0)
 
@@ -21,7 +22,7 @@ func StringToArgs(str string) (args []string) {
 }
 
 var scanner = bufio.NewScanner(os.Stdin)
-
+// reads the line. If nothing was written returns an empty string
 func ReadStrOrEmpty() string {
 	b := scanner.Scan()
 	if b {
@@ -31,6 +32,7 @@ func ReadStrOrEmpty() string {
 	}
 }
 
+// flips a 2D array on it's diagonal. Does not need to be square.
 func Transpose(data [][]float64) [][]float64 {
 	out := make([][]float64, len(data[0]))
 	for i := range out {
@@ -45,6 +47,8 @@ func Transpose(data [][]float64) [][]float64 {
 	return out
 }
 
+// calculates the least squares regression as defined at http://mathworld.wolfram.com/LeastSquaresFitting.html
+// returns the a & b for y = a + bx, as well as their respective standard error.
 func LeastSquares(xys plotter.XYs) (a, b, ea, eb float64) {
 	var (
 		S2, SSxx, SSyy, SSxy, meanX, meanY float64
