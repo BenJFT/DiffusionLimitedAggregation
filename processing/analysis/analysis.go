@@ -62,11 +62,13 @@ func GyrationRadii(points []aggregation.Point) (radii []float64) {
 
 	// start a goroutine calculating the means after each point is considered
 	go findMeans(points, chMeans)
-	for range points {
-		// wait for the next mean to be calculated then find the gyration radius to accompany it
-		e := <-chMeans
-		go gyrationRadius(points[:e.N], e.mean, chRadii)
-	}
+	go func() {
+		for range points {
+			// wait for the next mean to be calculated then find the gyration radius to accompany it
+			e := <-chMeans
+			go gyrationRadius(points[:e.N], e.mean, chRadii)
+		}
+	} ()
 
 	for range points {
 		// wait for each radius to be calculated and add them the set

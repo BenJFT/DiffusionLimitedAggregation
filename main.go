@@ -4,26 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/Benjft/DiffusionLimitedAggregation/processing"
 	"github.com/Benjft/DiffusionLimitedAggregation/util"
 )
 
-var (
-	formats map[string]bool = map[string]bool{
-		"png":  true,
-		"jpg":  true,
-		"jpeg": true,
-		"svg":  true,
-		"tif":  true,
-		"tiff": true,
-	}
-)
-
-type Handler func(args []string) (tail []string)
-
 func handleRun(args []string) (tail []string) {
+	fmt.Print("Running Simulation...")
 	var flags *flag.FlagSet
 	flags = flag.NewFlagSet("run", flag.ContinueOnError)
 	flags.SetOutput(os.Stdout)
@@ -33,24 +22,28 @@ func handleRun(args []string) (tail []string) {
 
 	flags.Int64Var(&nPoints, "points", 2000, "the number of points to aggregate (Minimum 1)")
 	flags.Int64Var(&nRuns, "runs", 1, "the number of aggregates to run (Minimum 1)")
-	flags.Int64Var(&nDimension, "dimension", 2, "the number of dimensions")
+	flags.Int64Var(&nDimension, "dims", 2, "the number of dimensions")
 	flags.Int64Var(&seed, "seed", 1, "the seed to run the set of simulations from")
 
 	flags.Float64Var(&sticking, "sticking", 1, "probability of a point sticking to an adjacent point per time step")
 
 	var err error = flags.Parse(args)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println(err)
+		return nil
 	} else if nPoints < 1 || nRuns < 1 || nDimension < 1 || sticking <= 0 || sticking > 1 {
 		flags.PrintDefaults()
+		return nil
 	} else {
 		tail = flags.Args()
 		processing.Run(nPoints, nRuns, seed, nDimension, sticking)
+		fmt.Println("Done")
 	}
 	return tail
 }
 
 func handleDraw(args []string) (tail []string) {
+	fmt.Print("Drawing...")
 	var flags *flag.FlagSet = flag.NewFlagSet("draw", flag.ContinueOnError)
 	flags.SetOutput(os.Stdout)
 
@@ -61,14 +54,17 @@ func handleDraw(args []string) (tail []string) {
 	var err error = flags.Parse(args)
 	if err != nil {
 		fmt.Println(err)
+		return nil
 	} else {
 		tail = flags.Args()
 		processing.Draw(name)
+		fmt.Println("Done")
 	}
 	return tail
 }
 
 func handleRadii(args []string) (tail []string) {
+	fmt.Print("Finding Radii...")
 	var flags *flag.FlagSet = flag.NewFlagSet("draw", flag.ContinueOnError)
 	flags.SetOutput(os.Stdout)
 
@@ -79,14 +75,17 @@ func handleRadii(args []string) (tail []string) {
 	var err error = flags.Parse(args)
 	if err != nil {
 		fmt.Println(err)
+		return nil
 	} else {
 		tail = flags.Args()
 		processing.Radii(name)
+		fmt.Println("Done")
 	}
 	return tail
 }
 
 func handleSave(args []string) (tail []string) {
+	fmt.Print("Saving...")
 	var flags *flag.FlagSet = flag.NewFlagSet("save", flag.ContinueOnError)
 	flags.SetOutput(os.Stdout)
 
@@ -97,14 +96,17 @@ func handleSave(args []string) (tail []string) {
 	var err error = flags.Parse(args)
 	if err != nil {
 		fmt.Println(err)
+		return nil
 	} else {
 		tail = flags.Args()
 		processing.Save(name)
+		fmt.Println("Done")
 	}
 	return tail
 }
 
 func handleLoad(args []string) (tail []string) {
+	fmt.Print("Loading...")
 	var flags *flag.FlagSet = flag.NewFlagSet("save", flag.ContinueOnError)
 	flags.SetOutput(os.Stdout)
 
@@ -116,7 +118,7 @@ func handleLoad(args []string) (tail []string) {
 
 	flags.Int64Var(&nPoints, "points", 2000, "the number of points to aggregate (Minimum 1)")
 	flags.Int64Var(&nRuns, "runs", 1, "the number of aggregates to run (Minimum 1)")
-	flags.Int64Var(&nDimension, "dimension", 2, "the number of dimensions (Minimum 2)")
+	flags.Int64Var(&nDimension, "dims", 2, "the number of dimensions (Minimum 1)")
 	flags.Int64Var(&seed, "seed", 1, "the seed to run the set of simulations from")
 
 	flags.Float64Var(&sticking, "sticking", 1, "probability of a point sticking to an adjacent point per time step")
@@ -124,6 +126,7 @@ func handleLoad(args []string) (tail []string) {
 	var err error = flags.Parse(args)
 	if err != nil {
 		fmt.Println(err)
+		return nil
 	} else {
 		if name == "" {
 			name = fmt.Sprintf("save-n%d-seed%d-dims%d-stick%f-runs%d", nPoints, seed, nDimension, sticking,
@@ -132,7 +135,9 @@ func handleLoad(args []string) (tail []string) {
 
 		tail = flags.Args()
 		processing.Load(name)
+		fmt.Println("Done")
 	}
+
 	return tail
 }
 
@@ -155,6 +160,12 @@ func handleArgs(args []string) bool {
 
 		if head == "quit" || head == "stop" {
 			return false
+		} else if head == "go" {
+			fmt.Println(runtime.NumGoroutine())
+			args = tail
+		} else if head == "gc" {
+			runtime.GC()
+			args = tail
 		} else if f, ok := handles[head]; ok {
 			args = f(tail)
 		} else {

@@ -3,6 +3,7 @@ package util
 import (
 	"bufio"
 	"github.com/gonum/plot/plotter"
+	"github.com/gonum/plot/plotutil"
 	"math"
 	"os"
 	"strings"
@@ -81,5 +82,79 @@ func LeastSquares(xys plotter.XYs) (a, b, ea, eb float64) {
 	ea = math.Sqrt(S2 * meanX * meanX / (SSxx * n))
 	eb = math.Sqrt(S2 / SSxx)
 
+	return a, b, ea, eb
+}
+// according to https://www.che.udel.edu/pdf/FittingData.pdf
+func WeightedLeastSquares(errs plotutil.ErrorPoints) (a, b, ea, eb float64) {
+	var (
+		sumX, sumY, sumXY, sumXX, sumE float64
+		chX, chY, chXY, chXX, chE chan float64
+	)
+
+	chX = make(chan float64)
+	go func() {
+		var sum, x, e float64
+
+		for i, xy := range errs.XYs {
+			x = xy.X
+			e = errs.YErrors[i].High
+			sum += x/(e*e)
+		}
+		chX <- sum
+	}()
+	chY = make(chan float64)
+	go func() {
+		var sum, y, e float64
+
+		for i, xy := range errs.XYs {
+			y = xy.Y
+			e = errs.YErrors[i].High
+			sum += y/(e*e)
+		}
+		chY <- sum
+	}()
+	chXX = make(chan float64)
+	go func() {
+		var sum, x, e float64
+
+		for i, xy := range errs.XYs {
+			x= xy.X
+			e = errs.YErrors[i].High
+			sum += (x*x)/(e*e)
+		}
+		chXX <- sum
+	}()
+	chXY = make(chan float64)
+	go func() {
+		var sum, x, y, e float64
+
+		for i, xy := range errs.XYs {
+			x, y = xy.X, xy.Y
+			e = errs.YErrors[i].High
+			sum += (x*y)/(e*e)
+		}
+		chXY <- sum
+	}()
+	chE = make(chan float64)
+	go func() {
+		var sum, e float64
+
+		for i := range errs.XYs {
+			e = errs.YErrors[i].High
+			sum += 1/(e*e)
+		}
+		chE <- sum
+	}()
+
+	sumX = <-chX
+	sumY = <-chY
+	sumXX = <-chXX
+	sumXY = <-chXY
+	sumE = <-chE
+
+	b = ((sumX*sumY) - (sumXY*sumE))/((sumX*sumX) - (sumXX*sumE))
+	a = (sumXY - (b*sumXX))/sumX
+	eb = math.Sqrt( sumE/((sumXX*sumE) - (sumX*sumX)) )
+	ea = math.Sqrt( sumXX/((sumXX*sumE) - (sumX*sumX)) )
 	return a, b, ea, eb
 }

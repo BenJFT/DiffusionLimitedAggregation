@@ -54,20 +54,14 @@ func Run(nPoints, nRuns, seed, nDimension int64, sticking float64) {
 	for i := int64(0); i < nRuns; i++ {
 		// sets each run to go concurrently, sending their results over 'channel'. This improves the run time
 		// when there are a large number of runs
-		go func(nPoints, seed, nDimension int64, sticking float64) {
+		go func (seed int64) {
 			channel <- aggregation.RunNew(nPoints, seed, nDimension, sticking)
-		}(nPoints, rand.Int63(), nDimension, sticking)
+		} (rand.Int63())
 	}
 
-	// waits for each output and adds the value to the 'points' array
+	// waits for each output
 	for i := int64(0); i < nRuns; i++ {
-		out := <-channel
-		if out == nil {
-			fmt.Println("Run Failed!")
-			return
-		} else {
-			points[i] = out
-		}
+		points[i] = <-channel
 	}
 
 	// none of the runs failed update the loaded run
@@ -229,6 +223,38 @@ func Load(title string) {
 	loadedRun = tmpRun
 }
 
+// MeanAndConf95 returns the mean
+// and the magnitude of the 95% confidence
+// interval on the mean as low and high
+// error values.
+//
+// MeanAndConf95 may be used as
+// the f argument to NewErrorPoints.
+func meanAndConf95(vls []float64) (mean, lowerr, higherr float64) {
+	n := float64(len(vls))
+
+	sum := 0.0
+	for _, v := range vls {
+		sum += v
+	}
+	mean = sum / n
+
+	var stdev float64 = 0.0
+	if n > 1 {
+		sum = 0.0
+		for _, v := range vls {
+			diff := v - mean
+			sum += diff * diff
+		}
+		stdev = math.Sqrt(sum / (n - 1.5))
+	} else {
+		stdev = 0
+	}
+
+	conf := 1.96 * stdev / math.Sqrt(n)
+	return mean, conf, conf
+}
+
 // uses the approximate radius of the aggregate to plot log(N)/log(R) and find the fractal dimensions
 func Radii(title string) {
 	// open a channel and wait to receive the radius calculations for each run in the current loaded state
@@ -241,11 +267,7 @@ func Radii(title string) {
 
 	radii := make([][]float64, loadedRun.NRuns)
 	for i := range loadedRun.Points {
-		radii[i] = <-channel //make([]float64, loadedRun.NPoints)
-		//runBalls := <-channel
-		//for j, ball := range runBalls {
-		//	radii[i][j] = ball.Radius
-		//}
+		radii[i] = <-channel
 	}
 
 	// flip the arrays so that each row contains the radius for the same number of particles (makes plotting
@@ -257,10 +279,10 @@ func Radii(title string) {
 	// make arrays of points marking X=log(R) Y=log(N). Skips the first point as R(N=1) = 0
 	for i, r := range radii[1:] {
 		xys := make(plotter.XYs, len(r))
-		N := float64(i + 2)
+		N := math.Log10(float64(i + 2))
 		for j, y := range r {
-			xys[j].X = math.Log10(y)
-			xys[j].Y = math.Log10(N)
+			xys[j].X = N
+			xys[j].Y = math.Log10(y)
 		}
 		pts[i] = xys
 	}
@@ -271,9 +293,13 @@ func Radii(title string) {
 		fmt.Println(err.Error())
 		return
 	}
+	plt.X.Label.Text = "Log(N)"
+	plt.Y.Label.Text = "Log(R)"
+
+
 
 	// plot the average after each point is added and find the error with 95% confidence.
-	mean95, err := plotutil.NewErrorPoints(plotutil.MeanAndConf95, pts...)
+	mean95, err := plotutil.NewErrorPoints(meanAndConf95, pts...)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -284,16 +310,28 @@ func Radii(title string) {
 		fmt.Println(err.Error())
 		return
 	}
-	err = plotutil.AddXErrorBars(plt, mean95)
+	err = plotutil.AddYErrorBars(plt, mean95)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
 	// calculate the regression coefficients and their respective errors
-	a, b, _, eb := util.LeastSquares(mean95.XYs[len(mean95.XYs)/20:])
+	regressionPoints := plotutil.ErrorPoints{
+		XYs:mean95.XYs[len(mean95.XYs)/20:],
+		XErrors:mean95.XErrors[len(mean95.XYs)/20:],
+		YErrors:mean95.YErrors[len(mean95.XYs)/20:],
+	}
+	var a, b, eb float64
+	if loadedRun.NRuns > 1 {
+		a, b, _, eb = util.WeightedLeastSquares(regressionPoints)
+	} else {
+		a, b, _, eb = util.LeastSquares(regressionPoints.XYs)
+	}
+
+	eb = eb/(b*b - eb*eb)
 	// Print the approximation of the fractal dimensions from the regression
-	fmt.Printf("D = %.3f \u00B1 %.3f\n", b, eb*1.96) // multiply by 1.96 for 95% confidence interval
+	fmt.Printf("D = %.3f \u00B1 %.3f\n", 1/b, eb*1.96) // multiply by 1.96 for 95% confidence interval
 	// add and label the Least Squares fit
 	label := fmt.Sprintf("y = %.3f + %.3fx", a, b)
 	fit := plotter.NewFunction(func(x float64) float64 { return a + b*x })
@@ -311,7 +349,7 @@ func Radii(title string) {
 	}
 
 	name := fmt.Sprintf("out\\plot\\%s.svg", title)
-	plt.Save(15*vg.Inch, 10*vg.Inch, name)
+	plt.Save(8*vg.Inch, 5.66*vg.Inch, name)
 	err = open.Run(name)
 	if err != nil {
 		fmt.Println(err.Error())
