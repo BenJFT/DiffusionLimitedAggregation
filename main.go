@@ -11,143 +11,162 @@ import (
 	"github.com/Benjft/DiffusionLimitedAggregation/util"
 )
 
-func handleRun(args []string) (tail []string) {
-	fmt.Print("Running Simulation...")
-	var flags *flag.FlagSet
-	flags = flag.NewFlagSet("run", flag.ContinueOnError)
-	flags.SetOutput(os.Stdout)
+var data []*processing.RunData
+func runOnce(args []string) []string {
+	var flagSet = flag.NewFlagSet("runonce", flag.ContinueOnError)
+	var (
+		n, d, seed int64
+		stick float64
+		tryLoad bool
+	)
 
-	var nPoints, nRuns, nDimension, seed int64
-	var sticking float64
+	flagSet.Int64Var(&n, "npoints", 5000, "The number of points desired in the final aggregate")
+	flagSet.Int64Var(&d, "dimensions", 2, "The number of dimensions for the space of the simulation")
+	flagSet.Int64Var(&seed, "seed", 1, "The seet to be input to the random number generator")
 
-	flags.Int64Var(&nPoints, "points", 2000, "the number of points to aggregate (Minimum 1)")
-	flags.Int64Var(&nRuns, "runs", 1, "the number of aggregates to run (Minimum 1)")
-	flags.Int64Var(&nDimension, "dims", 2, "the number of dimensions")
-	flags.Int64Var(&seed, "seed", 1, "the seed to run the set of simulations from")
+	flagSet.Float64Var(&stick, "pstick", 1, "The probability a point will stick to a neighboring filled site")
 
-	flags.Float64Var(&sticking, "sticking", 1, "probability of a point sticking to an adjacent point per time step")
+	flagSet.BoolVar(&tryLoad, "load", false, "Load the result if it has been found before for the specific config")
 
-	var err error = flags.Parse(args)
+	var err = flagSet.Parse(args)
+
 	if err != nil {
 		fmt.Println(err)
-		return nil
-	} else if nPoints < 1 || nRuns < 1 || nDimension < 1 || sticking <= 0 || sticking > 1 {
-		flags.PrintDefaults()
-		return nil
-	} else {
-		tail = flags.Args()
-		processing.Run(nPoints, nRuns, seed, nDimension, sticking)
-		fmt.Println("Done")
+		return []string{}
 	}
-	return tail
+	data = []*processing.RunData {
+		processing.RunOne(n, d, seed, stick, tryLoad),
+	}
+
+	return flagSet.Args()
 }
+func runMany(args []string) []string {
+	var flagSet = flag.NewFlagSet("runmany", flag.ContinueOnError)
+	var (
+		n, d, seed, runs int64
+		stick float64
+		tryLoad bool
+	)
 
-func handleDraw(args []string) (tail []string) {
-	fmt.Print("Drawing...")
-	var flags *flag.FlagSet = flag.NewFlagSet("draw", flag.ContinueOnError)
-	flags.SetOutput(os.Stdout)
+	flagSet.Int64Var(&n, "npoints", 5000, "The number of points desired in the final aggregate")
+	flagSet.Int64Var(&d, "dimensions", 2, "The number of dimensions for the space of the simulation")
+	flagSet.Int64Var(&seed, "seed", 1, "The seed to be input to the random number generator. Generates seeds for" +
+		" each individual run so each change generates a complete new set.")
+	flagSet.Int64Var(&runs, "runs", 32, "The number of simulations to be run in this set")
 
-	var name string
+	flagSet.Float64Var(&stick, "pstick", 1, "The probability a point will stick to a neighboring filled site")
 
-	flags.StringVar(&name, "name", "", "The name for the file. (Default based on run args)")
+	flagSet.BoolVar(&tryLoad, "load", false, "Load the result if it has been found before for the specific config")
 
-	var err error = flags.Parse(args)
+	var err = flagSet.Parse(args)
 	if err != nil {
 		fmt.Println(err)
-		return nil
-	} else {
-		tail = flags.Args()
-		processing.Draw(name)
-		fmt.Println("Done")
+		return []string{}
 	}
-	return tail
+	data = processing.RunMany(n, d, seed, stick, tryLoad, runs)
+
+	return flagSet.Args()
 }
+func save(args []string) []string {
+	var flagSet = flag.NewFlagSet("save", flag.ContinueOnError)
 
-func handleRadii(args []string) (tail []string) {
-	fmt.Print("Finding Radii...")
-	var flags *flag.FlagSet = flag.NewFlagSet("draw", flag.ContinueOnError)
-	flags.SetOutput(os.Stdout)
 
-	var name string
-
-	flags.StringVar(&name, "name", "", "The name for the file. (Default based on run args)")
-
-	var err error = flags.Parse(args)
+	var err = flagSet.Parse(args)
 	if err != nil {
 		fmt.Println(err)
-		return nil
-	} else {
-		tail = flags.Args()
-		processing.Radii(name)
-		fmt.Println("Done")
+		return []string{}
 	}
-	return tail
+	if data != nil {
+		processing.SaveAll(data)
+	}
+	return flagSet.Args()
 }
+func varyDimension(args []string) []string {
+	var flagSet = flag.NewFlagSet("varydimension", flag.ContinueOnError)
+	var (
+		n, d0, d1, dStep, seed, runsPer int64
+		stick float64
+		tryLoad bool
+	)
+	flagSet.Int64Var(&n, "npoints", 5000, "The number of points desired in the final aggregate")
+	flagSet.Int64Var(&d0, "start", 1, "The lowest number of dimensions to simulate (inclusive)")
+	flagSet.Int64Var(&d1, "stop", 6, "The highest number of dimensions to simulate (inclusive)")
+	flagSet.Int64Var(&dStep, "step", 1, "The gap between simulations")
+	flagSet.Int64Var(&seed, "seed", 1, "The seed to be input to the random number generator. Generates seeds for" +
+		" each individual run so each change generates a complete new set.")
+	flagSet.Int64Var(&runsPer, "runs", 32, "The number of simulations to be run for each value of d")
 
-func handleSave(args []string) (tail []string) {
-	fmt.Print("Saving...")
-	var flags *flag.FlagSet = flag.NewFlagSet("save", flag.ContinueOnError)
-	flags.SetOutput(os.Stdout)
+	flagSet.Float64Var(&stick, "pstick", 1, "The probability a point will stick to a neighboring filled site")
 
-	var name string
+	flagSet.BoolVar(&tryLoad, "load", false, "Load the result if it has been found before for the specific config")
 
-	flags.StringVar(&name, "name", "", "The name for the file. (Default based on run args)")
-
-	var err error = flags.Parse(args)
+	var err = flagSet.Parse(args)
 	if err != nil {
 		fmt.Println(err)
-		return nil
-	} else {
-		tail = flags.Args()
-		processing.Save(name)
-		fmt.Println("Done")
+		return []string{}
 	}
-	return tail
+
+	data = processing.VaryDimension(n, d0, d1, dStep, seed, stick, tryLoad, runsPer)
+	return flagSet.Args()
 }
+func varySticking(args []string) []string {
+	var flagSet = flag.NewFlagSet("varysticking", flag.ContinueOnError)
+	var (
+		n, d, seed, runsPer int64
+		s0, s1, sStep float64
+		tryLoad bool
+	)
+	flagSet.Int64Var(&n, "-npoints", 5000, "The number of points desired in the final aggregate")
+	flagSet.Int64Var(&d, "-dimensions", 2, "The number of dimensions for the space of the simulation")
+	flagSet.Int64Var(&seed, "-seed", 1, "The seed to be input to the random number generator. Generates seeds for" +
+		" each individual run so each change generates a complete new set.")
+	flagSet.Int64Var(&runsPer, "-runs", 32, "The number of simulations to be run for each value of d")
 
-func handleLoad(args []string) (tail []string) {
-	fmt.Print("Loading...")
-	var flags *flag.FlagSet = flag.NewFlagSet("save", flag.ContinueOnError)
-	flags.SetOutput(os.Stdout)
+	flagSet.Float64Var(&s0, "-start", .1, "The lowest probability a point will stick to a neighboring filled site")
+	flagSet.Float64Var(&s1, "-stop", 1, "The highest probability a point will stick to a neighboring filled site")
+	flagSet.Float64Var(&sStep, "-step", .1, "The gap between simulations")
 
-	var name string
-	var nPoints, nRuns, nDimension, seed int64
-	var sticking float64
+	flagSet.BoolVar(&tryLoad, "-load", false, "Load the result if it has been found before for the specific config")
 
-	flags.StringVar(&name, "name", "", "The name for the file. (Default based on run args)")
-
-	flags.Int64Var(&nPoints, "points", 2000, "the number of points to aggregate (Minimum 1)")
-	flags.Int64Var(&nRuns, "runs", 1, "the number of aggregates to run (Minimum 1)")
-	flags.Int64Var(&nDimension, "dims", 2, "the number of dimensions (Minimum 1)")
-	flags.Int64Var(&seed, "seed", 1, "the seed to run the set of simulations from")
-
-	flags.Float64Var(&sticking, "sticking", 1, "probability of a point sticking to an adjacent point per time step")
-
-	var err error = flags.Parse(args)
+	var err = flagSet.Parse(args)
 	if err != nil {
 		fmt.Println(err)
-		return nil
-	} else {
-		if name == "" {
-			name = fmt.Sprintf("save-n%d-seed%d-dims%d-stick%f-runs%d", nPoints, seed, nDimension, sticking,
-				nRuns)
-		}
-
-		tail = flags.Args()
-		processing.Load(name)
-		fmt.Println("Done")
+		return []string{}
 	}
 
-	return tail
+	data = processing.VarySticking(n, d, seed, s0, s1, sStep, tryLoad, runsPer)
+	return flagSet.Args()
+}
+func growth(args []string) []string {
+	var flagSet = flag.NewFlagSet("growth", flag.ContinueOnError)
+	var (
+		hideCurves, outputRaw, hideTrend bool
+	)
+
+	flagSet.BoolVar(&hideCurves, "hidecurves", false, "Enable to prevent drawing a large number of curves for" +
+		" multi value data sets")
+	flagSet.BoolVar(&outputRaw, "raw", false, "Enable to allow curve data to be saved to a csv file for external" +
+		" processing")
+	flagSet.BoolVar(&hideTrend, "hidetrend", false, "Enable to prevent the overall trend from being plotted")
+
+	var err = flagSet.Parse(args)
+	if err != nil {
+		fmt.Println(err)
+		return []string{}
+	}
+
+	processing.GrowthRate(data, !hideCurves, outputRaw, !hideTrend)
+	return flagSet.Args()
 }
 
 var (
-	handles map[string]func([]string) []string = map[string]func([]string) []string{
-		"run":   handleRun,
-		"draw":  handleDraw,
-		"save":  handleSave,
-		"load":  handleLoad,
-		"radii": handleRadii,
+	handles = map[string]func([]string) []string{
+		"runone": runOnce,
+		"runmany": runMany,
+		"save": save,
+		"varydimension": varyDimension,
+		"varysticking": varySticking,
+		"growth": growth,
 	}
 )
 
@@ -169,7 +188,13 @@ func handleArgs(args []string) bool {
 		} else if f, ok := handles[head]; ok {
 			args = f(tail)
 		} else {
-			fmt.Printf("'%s' not recognised as valid\n", head)
+			if head != "help" {
+				fmt.Printf("'%s' not recognised as valid\n", head)
+				fmt.Println("Try:")
+			}
+			for k := range handles {
+				fmt.Println("\t" + k)
+			}
 			return true
 		}
 	}
@@ -193,6 +218,7 @@ func mainLoop() {
 func main() {
 	// Gets the command line arguments
 	args := os.Args[1:]
+	println("Hello, World!")
 
 	// If arguments were given run using those, else start the prompt loop
 	if len(args) > 0 {

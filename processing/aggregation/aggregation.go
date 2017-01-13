@@ -6,12 +6,29 @@ import (
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/agg2D"
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/agg3D"
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/aggND"
+	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation/agg1D"
 )
 
 // general interface required for points. Makes no assumptions of dimensionality
 type Point interface {
 	Coordinates() []int64
 	SquareDistance(coords []float64) float64
+}
+
+func Run1D(nPoints, seed int64, sticking float64) (points []Point) {
+
+	var rng *rand.Rand = rand.New(rand.NewSource(seed))
+	var state = agg1D.RunNew(nPoints, sticking, rng)
+
+	if int64(len(state)) != nPoints {
+		panic("This should never happen")
+	}
+
+	points = make([]Point, nPoints)
+	for point, index := range state {
+		points[index] = point
+	}
+	return points
 }
 
 // runs the specialised case of a 2D simulation
@@ -58,6 +75,8 @@ func RunND(nPoints, seed int64, sticking float64, dimension int64) (points []Poi
 // runs the most suitable simulation for the number of dimensions
 func RunNew(nPoints, seed, nDimension int64, sticking float64) []Point {
 	switch nDimension {
+	case 1:
+		return Run1D(nPoints, seed, sticking)
 	case 2:
 		return Run2D(nPoints, seed, sticking)
 	case 3:

@@ -26,13 +26,7 @@ func (p Point2D) Coordinates() []int64 {
 }
 
 func (p Point2D) SquareDistance(coords []float64) float64 {
-	var (
-		ix, iy int64   = p.X, p.Y
-		fx, fy float64 = float64(ix), float64(iy)
-		x, y   float64 = coords[0], coords[1]
-		dx     float64 = fx - x
-		dy     float64 = fy - y
-	)
+	var dx, dy float64 = float64(p.X)-coords[0], float64(p.Y)-coords[1]
 	return dx*dx + dy*dy
 }
 

@@ -76,9 +76,9 @@ func (c *cache) pointToBorder() {
 	c.tempA = 2 * math.Pi * c.rng.Float64()
 	c.tempB = 2 * math.Pi * c.rng.Float64()
 
-	c.point.X = int64(math.Sin(c.tempA) * math.Sin(c.tempB) * c.borderRadius)
-	c.point.Y = int64(math.Cos(c.tempA) * math.Sin(c.tempB) * c.borderRadius)
 	c.point.Z = int64(math.Cos(c.tempB) * c.borderRadius)
+	c.point.Y = int64(math.Cos(c.tempA) * math.Sin(c.tempB) * c.borderRadius)
+	c.point.X = int64(		      math.Sin(c.tempA) * math.Sin(c.tempB) * c.borderRadius)
 
 	c.updateCurrPointRadius()
 }
