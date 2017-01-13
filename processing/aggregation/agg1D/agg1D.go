@@ -2,66 +2,135 @@ package agg1D
 
 import (
 	"encoding/gob"
+	"math"
 	"math/rand"
 )
 
 func init() {
-	// register the point structure to allow it to be saved and loaded
-	gob.Register(Point1D{0})
+	gob.Register(Point1D{})
 }
 
 const (
 	BORDER_SCALE float64 = 1.5
-	BORDER_CONST float64 = 5
+	BORDER_CONST float64 = 3
 )
 
-// Specialised point structure for a point in 1D. Implements methods required for the Point interface in aggregation
-type Point1D struct{
-	X int64
+type Point1D struct {
+	A int64
 }
 
 func (p Point1D) Coordinates() []int64 {
-	return []int64{p.X}
+	return []int64{ p.A }
 }
 
 func (p Point1D) SquareDistance(coords []float64) float64 {
-	var (
-		ix int64   = p.X
-		fx float64 = float64(ix)
-		x  float64 = coords[0]
-		dx float64 = fx - x
-	)
-	return dx*dx
+	var dA = float64(p.A)-coords[0]
+	return dA*dA
 }
 
-// Structure implemented to remove most, if not all, garbage collector overhead by preallocating all memory to be used
-// by the simulation
+
 type cache struct {
-	point           Point1D
-	pointRadius     float64
-
-	rng             *rand.Rand
-	lastWalk        int64
-
-	state           map[Point1D]int64
-	stateRadius     float64
-
-	borderRadius    float64
+	point Point1D
+	pointRadius float64
+	rng *rand.Rand
+	lastWalk int64
+	state map[Point1D]int64
+	stateRadius float64
+	borderRadius float64
 	borderRadiusInt int64
-
-	tempPoint       Point1D
-	tempFloat       float64
+	tempPoint Point1D
+	tempFloatA, tempFloatB float64
 }
 
-// runs a new 2d aggregation simulation and returns the finished state
+func (c *cache) updateCurrPointRadius() {
+	c.pointRadius = math.Sqrt(float64(c.point.A*c.point.A))
+}
+
+func (c *cache) updateStateRadius() {
+	c.stateRadius = c.pointRadius
+	c.borderRadius = c.stateRadius*BORDER_SCALE + BORDER_CONST
+	c.borderRadiusInt = int64(c.borderRadius)
+}
+
+func (c *cache) pointIn() (ok bool) {
+	_, ok = c.state[c.point]
+	return
+}
+
+
+func (c *cache) pointToBorder() {
+		c.tempFloatA = 1
+	c.point.A = int64(c.tempFloatA * c.borderRadius)
+
+	c.updateCurrPointRadius()
+}
+
+func (c *cache) walkPoint() {
+		switch c.rng.Int63n(2) {
+	case 0:
+		c.point.A++
+		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+			c.point.A--
+		} else {
+			if c.point.A > c.borderRadiusInt {
+				c.point.A -= 2*c.borderRadiusInt
+			}
+			c.lastWalk = 0
+		}
+	case 1:
+		c.point.A--
+		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+			c.point.A++
+		} else {
+			if c.point.A < -c.borderRadiusInt {
+				c.point.A += 2*c.borderRadiusInt
+			}
+			c.lastWalk = 1
+		}
+}
+
+	c.updateCurrPointRadius()
+}
+
+func (c *cache) isPlusAIn() bool {
+	return c.lastWalk != 1 && c.plusAIn()
+}
+func (c *cache) plusAIn() (ok bool) {
+	c.tempPoint = c.point
+	c.tempPoint.A++
+	_, ok = c.state[c.tempPoint]
+	return
+}
+func (c *cache) isMinusAIn() bool {
+	return c.lastWalk != 0 && c.minusAIn()
+}
+func (c *cache) minusAIn() (ok bool) {
+	c.tempPoint = c.point
+	c.tempPoint.A--
+	_, ok = c.state[c.tempPoint]
+	return
+}
+
+func (c *cache) pointHasNeighbor() bool {
+	return c.pointRadius <= c.stateRadius+1 && (c.isPlusAIn() || c.isMinusAIn())
+}
+
 func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[Point1D]int64 {
-	var state = make(map[Point1D]int64, nPoints)
-	state[Point1D{0}] = 0
-
-	// add points one at a time
+	c := cache{}
+	c.rng = rng
+	c.state = make(map[Point1D]int64, nPoints)
+	c.state[c.point] = 0
+	c.updateStateRadius()
+	
 	for i := int64(1); i < nPoints; i++ {
-		state[Point1D{i}] = i
+		c.pointToBorder()
+		for !c.pointHasNeighbor() || sticking < rng.Float64() {
+			c.walkPoint()
+		}
+		c.state[c.point]=i
+		if c.pointRadius > c.stateRadius {
+			c.updateStateRadius()
+		}
 	}
-
-	return state
+	return c.state
 }

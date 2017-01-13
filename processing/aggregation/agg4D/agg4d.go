@@ -1,4 +1,4 @@
-package agg2D
+package agg4D
 
 import (
 	"encoding/gob"
@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	gob.Register(Point2D{})
+	gob.Register(Point4D{})
 }
 
 const (
@@ -15,35 +15,35 @@ const (
 	BORDER_CONST float64 = 3
 )
 
-type Point2D struct {
-	A, B int64
+type Point4D struct {
+	A, B, C, D int64
 }
 
-func (p Point2D) Coordinates() []int64 {
-	return []int64{ p.A, p.B }
+func (p Point4D) Coordinates() []int64 {
+	return []int64{ p.A, p.B, p.C, p.D }
 }
 
-func (p Point2D) SquareDistance(coords []float64) float64 {
-	var dA, dB = float64(p.A)-coords[0], float64(p.B)-coords[1]
-	return dA*dA + dB*dB
+func (p Point4D) SquareDistance(coords []float64) float64 {
+	var dA, dB, dC, dD = float64(p.A)-coords[0], float64(p.B)-coords[1], float64(p.C)-coords[2], float64(p.D)-coords[3]
+	return dA*dA + dB*dB + dC*dC + dD*dD
 }
 
 
 type cache struct {
-	point Point2D
+	point Point4D
 	pointRadius float64
 	rng *rand.Rand
 	lastWalk int64
-	state map[Point2D]int64
+	state map[Point4D]int64
 	stateRadius float64
 	borderRadius float64
 	borderRadiusInt int64
-	tempPoint Point2D
+	tempPoint Point4D
 	tempFloatA, tempFloatB float64
 }
 
 func (c *cache) updateCurrPointRadius() {
-	c.pointRadius = math.Sqrt(float64(c.point.A*c.point.A + c.point.B*c.point.B))
+	c.pointRadius = math.Sqrt(float64(c.point.A*c.point.A + c.point.B*c.point.B + c.point.C*c.point.C + c.point.D*c.point.D))
 }
 
 func (c *cache) updateStateRadius() {
@@ -63,13 +63,19 @@ func (c *cache) pointToBorder() {
 	c.tempFloatB = c.rng.Float64() * 2 * math.Pi
 	c.point.A = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.borderRadius)
 	c.tempFloatA *= math.Sin(c.tempFloatB)
-	c.point.B = int64(c.tempFloatA * c.borderRadius)
+	c.tempFloatB = c.rng.Float64() * 2 * math.Pi
+	c.point.B = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.borderRadius)
+	c.tempFloatA *= math.Sin(c.tempFloatB)
+	c.tempFloatB = c.rng.Float64() * 2 * math.Pi
+	c.point.C = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.borderRadius)
+	c.tempFloatA *= math.Sin(c.tempFloatB)
+	c.point.D = int64(c.tempFloatA * c.borderRadius)
 
 	c.updateCurrPointRadius()
 }
 
 func (c *cache) walkPoint() {
-		switch c.rng.Int63n(4) {
+		switch c.rng.Int63n(8) {
 	case 0:
 		c.point.A++
 		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
@@ -109,6 +115,46 @@ func (c *cache) walkPoint() {
 				c.point.B += 2*c.borderRadiusInt
 			}
 			c.lastWalk = 3
+		}
+	case 4:
+		c.point.C++
+		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+			c.point.C--
+		} else {
+			if c.point.C > c.borderRadiusInt {
+				c.point.C -= 2*c.borderRadiusInt
+			}
+			c.lastWalk = 4
+		}
+	case 5:
+		c.point.C--
+		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+			c.point.C++
+		} else {
+			if c.point.C < -c.borderRadiusInt {
+				c.point.C += 2*c.borderRadiusInt
+			}
+			c.lastWalk = 5
+		}
+	case 6:
+		c.point.D++
+		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+			c.point.D--
+		} else {
+			if c.point.D > c.borderRadiusInt {
+				c.point.D -= 2*c.borderRadiusInt
+			}
+			c.lastWalk = 6
+		}
+	case 7:
+		c.point.D--
+		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+			c.point.D++
+		} else {
+			if c.point.D < -c.borderRadiusInt {
+				c.point.D += 2*c.borderRadiusInt
+			}
+			c.lastWalk = 7
 		}
 }
 
@@ -153,14 +199,52 @@ func (c *cache) minusBIn() (ok bool) {
 	return
 }
 
-func (c *cache) pointHasNeighbor() bool {
-	return c.pointRadius <= c.stateRadius+1 && (c.isPlusAIn() || c.isMinusAIn() || c.isPlusBIn() || c.isMinusBIn())
+func (c *cache) isPlusCIn() bool {
+	return c.lastWalk != 5 && c.plusCIn()
+}
+func (c *cache) plusCIn() (ok bool) {
+	c.tempPoint = c.point
+	c.tempPoint.C++
+	_, ok = c.state[c.tempPoint]
+	return
+}
+func (c *cache) isMinusCIn() bool {
+	return c.lastWalk != 4 && c.minusCIn()
+}
+func (c *cache) minusCIn() (ok bool) {
+	c.tempPoint = c.point
+	c.tempPoint.C--
+	_, ok = c.state[c.tempPoint]
+	return
 }
 
-func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[Point2D]int64 {
+func (c *cache) isPlusDIn() bool {
+	return c.lastWalk != 7 && c.plusDIn()
+}
+func (c *cache) plusDIn() (ok bool) {
+	c.tempPoint = c.point
+	c.tempPoint.D++
+	_, ok = c.state[c.tempPoint]
+	return
+}
+func (c *cache) isMinusDIn() bool {
+	return c.lastWalk != 6 && c.minusDIn()
+}
+func (c *cache) minusDIn() (ok bool) {
+	c.tempPoint = c.point
+	c.tempPoint.D--
+	_, ok = c.state[c.tempPoint]
+	return
+}
+
+func (c *cache) pointHasNeighbor() bool {
+	return c.pointRadius <= c.stateRadius+1 && (c.isPlusAIn() || c.isMinusAIn() || c.isPlusBIn() || c.isMinusBIn() || c.isPlusCIn() || c.isMinusCIn() || c.isPlusDIn() || c.isMinusDIn())
+}
+
+func RunNew(nPoints int64, sticking float64, rng *rand.Rand) map[Point4D]int64 {
 	c := cache{}
 	c.rng = rng
-	c.state = make(map[Point2D]int64, nPoints)
+	c.state = make(map[Point4D]int64, nPoints)
 	c.state[c.point] = 0
 	c.updateStateRadius()
 	
