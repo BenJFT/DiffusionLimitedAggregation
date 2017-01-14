@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"encoding/csv"
 	"fmt"
+	"image/color"
 	"math"
 	"math/rand"
 	"os"
@@ -128,10 +129,16 @@ func RunOne(n, d, seed int64, stick float64, tryLoad bool) (run *RunData) {
 		if err != nil {
 			fmt.Println(err, "Load Failed. Running...")
 			run.Run()
+			fmt.Println(run.FileName(), "Finished Running.")
+		} else {
+			fmt.Println(run.FileName(), "Loaded.")
 		}
 	} else {
+		fmt.Println(run.FileName(), "Started Running.")
 		run.Run()
+		fmt.Println(run.FileName(), "Finished Running.")
 	}
+	run.Save()
 	return
 }
 
@@ -278,12 +285,7 @@ func growth(radii []*Radii, showAllCurves bool, outputRaw bool, title string) (d
 		XErrors:mean95.XErrors[len(mean95.XYs)/20:],
 		YErrors:mean95.YErrors[len(mean95.XYs)/20:],
 	}
-	var a, b, eb float64
-	if len(radii) > 1 {
-		a, b, _, eb = util.WeightedLeastSquares(regressionPoints)
-	} else {
-		a, b, _, eb = util.LeastSquares(regressionPoints.XYs)
-	}
+	var a, b, _, eb = util.WeightedLeastSquares(regressionPoints)
 	dims = 1/b
 	seDims = eb/(b*b - eb*eb)
 	if showAllCurves {
@@ -304,6 +306,7 @@ func growth(radii []*Radii, showAllCurves bool, outputRaw bool, title string) (d
 			}
 			scat.Shape = draw.SquareGlyph{}
 			scat.Radius /= 2
+			scat.Color = color.RGBA{A:255, R:200, G:55, B:55}
 
 			errs, err := plotter.NewYErrorBars(mean95)
 			if err != nil {
@@ -311,10 +314,11 @@ func growth(radii []*Radii, showAllCurves bool, outputRaw bool, title string) (d
 				return
 			}
 			errs.Width /= 2
+			errs.Color = color.RGBA{A:255, R:255, G:55, B:55}
 
 			fit := plotter.NewFunction(func (x float64) float64 {return a + b*x})
 
-			plt.Add(scat, errs, fit)
+			plt.Add(errs, scat, fit)
 			plt.Legend.Add(fmt.Sprintf("y = %.3f + %.3fx", a, b), fit)
 
 			path := fmt.Sprintf("%s\\%s.pdf", PLOT_PATH, title)
@@ -525,35 +529,28 @@ func GrowthRate(runData []*RunData, showAllCurves, outputRaw, showTrend bool) {
 
 		minD = int64(math.MaxInt64)
 		maxD = int64(math.MinInt64)
+		D = map[int64]bool{}
 
 		minS = math.Inf(1)
 		maxS = math.Inf(-1)
-
-		nData = 0
+		S = map[float64]bool{}
 	)
 
 	for _, data := range runData {
-		var any = false
 		if data.D < minD {
 			minD = data.D
-			any = true
 		}
 		if data.D > maxD {
 			maxD = data.D
-			any = true
 		}
 		if data.Stick < minS {
 			minS = data.Stick
-			any = true
 		}
 		if data.Stick < maxS {
 			maxS = data.Stick
-			any = true
 		}
-
-		if any {
-			nData += 1
-		}
+		D[data.D]=true
+		S[data.Stick]=true
 
 		go func(data *RunData) {
 			radiiChannel <- data.GyrationRadii()
@@ -563,6 +560,8 @@ func GrowthRate(runData []*RunData, showAllCurves, outputRaw, showTrend bool) {
 	for i := range radii {
 		radii[i] = <-radiiChannel
 	}
+
+	var nData = len(D)*len(S)
 
 	if maxD > minD && maxS > minS {
 		panic("This should not be possible!")
@@ -575,7 +574,7 @@ func GrowthRate(runData []*RunData, showAllCurves, outputRaw, showTrend bool) {
 	} else {
 		var title = fmt.Sprintf("PLT_D%d_S%b", minD, minS)
 		var d, errD = growth(radii, showAllCurves, outputRaw, title)
-		fmt.Printf("d = %.3f \u00b1 %.3f\n", d, errD)
+		fmt.Printf("d = %.3f \u00b1 %.3f\n", d, errD*1.96)
 	}
 
 

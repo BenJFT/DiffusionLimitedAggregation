@@ -80,7 +80,7 @@ func LeastSquares(xys plotter.XYs) (a, b, ea, eb float64) {
 	S2 = (SSyy - b*SSxy) / (n - 2)
 
 	ea = math.Sqrt(S2 * meanX * meanX / (SSxx * n))
-	eb = math.Sqrt(S2 / SSxx)
+	eb = math.Sqrt(S2 / (SSxx/n))
 
 	return a, b, ea, eb
 }
@@ -152,9 +152,17 @@ func WeightedLeastSquares(errs plotutil.ErrorPoints) (a, b, ea, eb float64) {
 	sumXY = <-chXY
 	sumE = <-chE
 
+	if math.IsNaN(sumE) || math.IsNaN(sumX) || math.IsNaN(sumXX) || math.IsNaN(sumXY) || math.IsNaN(sumY) {
+		return LeastSquares(errs.XYs)
+	}
+
 	b = ((sumX*sumY) - (sumXY*sumE))/((sumX*sumX) - (sumXX*sumE))
 	a = (sumXY - (b*sumXX))/sumX
 	eb = math.Sqrt( sumE/((sumXX*sumE) - (sumX*sumX)) )
 	ea = math.Sqrt( sumXX/((sumXX*sumE) - (sumX*sumX)) )
+
+	if math.IsNaN(b) || math.IsNaN(a) || math.IsNaN(eb) || math.IsNaN(ea) {
+		return LeastSquares(errs.XYs)
+	}
 	return a, b, ea, eb
 }

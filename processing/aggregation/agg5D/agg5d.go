@@ -12,7 +12,7 @@ func init() {
 
 const (
 	BORDER_SCALE float64 = 1.5
-	BORDER_CONST float64 = 3
+	BORDER_CONST float64 = 4
 )
 
 type Point5D struct {
@@ -36,6 +36,7 @@ type cache struct {
 	lastWalk int64
 	state map[Point5D]int64
 	stateRadius float64
+	startRadius float64
 	borderRadius float64
 	borderRadiusInt int64
 	tempPoint Point5D
@@ -48,7 +49,8 @@ func (c *cache) updateCurrPointRadius() {
 
 func (c *cache) updateStateRadius() {
 	c.stateRadius = c.pointRadius
-	c.borderRadius = c.stateRadius*BORDER_SCALE + BORDER_CONST
+	c.startRadius = c.stateRadius+BORDER_CONST
+	c.borderRadius = c.startRadius*BORDER_SCALE
 	c.borderRadiusInt = int64(c.borderRadius)
 }
 
@@ -61,18 +63,18 @@ func (c *cache) pointIn() (ok bool) {
 func (c *cache) pointToBorder() {
 		c.tempFloatA = 1
 	c.tempFloatB = c.rng.Float64() * 2 * math.Pi
-	c.point.A = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.borderRadius)
+	c.point.A = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.startRadius)
 	c.tempFloatA *= math.Sin(c.tempFloatB)
 	c.tempFloatB = c.rng.Float64() * 2 * math.Pi
-	c.point.B = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.borderRadius)
+	c.point.B = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.startRadius)
 	c.tempFloatA *= math.Sin(c.tempFloatB)
 	c.tempFloatB = c.rng.Float64() * 2 * math.Pi
-	c.point.C = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.borderRadius)
+	c.point.C = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.startRadius)
 	c.tempFloatA *= math.Sin(c.tempFloatB)
 	c.tempFloatB = c.rng.Float64() * 2 * math.Pi
-	c.point.D = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.borderRadius)
+	c.point.D = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.startRadius)
 	c.tempFloatA *= math.Sin(c.tempFloatB)
-	c.point.E = int64(c.tempFloatA * c.borderRadius)
+	c.point.E = int64(c.tempFloatA * c.startRadius)
 
 	c.updateCurrPointRadius()
 }
@@ -81,101 +83,101 @@ func (c *cache) walkPoint() {
 		switch c.rng.Int63n(10) {
 	case 0:
 		c.point.A++
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.A--
 		} else {
 			if c.point.A > c.borderRadiusInt {
-				c.point.A -= 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 0
 		}
 	case 1:
 		c.point.A--
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.A++
 		} else {
 			if c.point.A < -c.borderRadiusInt {
-				c.point.A += 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 1
 		}
 	case 2:
 		c.point.B++
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.B--
 		} else {
 			if c.point.B > c.borderRadiusInt {
-				c.point.B -= 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 2
 		}
 	case 3:
 		c.point.B--
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.B++
 		} else {
 			if c.point.B < -c.borderRadiusInt {
-				c.point.B += 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 3
 		}
 	case 4:
 		c.point.C++
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.C--
 		} else {
 			if c.point.C > c.borderRadiusInt {
-				c.point.C -= 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 4
 		}
 	case 5:
 		c.point.C--
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.C++
 		} else {
 			if c.point.C < -c.borderRadiusInt {
-				c.point.C += 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 5
 		}
 	case 6:
 		c.point.D++
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.D--
 		} else {
 			if c.point.D > c.borderRadiusInt {
-				c.point.D -= 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 6
 		}
 	case 7:
 		c.point.D--
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.D++
 		} else {
 			if c.point.D < -c.borderRadiusInt {
-				c.point.D += 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 7
 		}
 	case 8:
 		c.point.E++
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.E--
 		} else {
 			if c.point.E > c.borderRadiusInt {
-				c.point.E -= 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 8
 		}
 	case 9:
 		c.point.E--
-		if c.pointRadius < 4+c.stateRadius && c.pointIn() {
+		if c.pointRadius < c.startRadius && c.pointIn() {
 			c.point.E++
 		} else {
 			if c.point.E < -c.borderRadiusInt {
-				c.point.E += 2*c.borderRadiusInt
+				c.pointToBorder()
 			}
 			c.lastWalk = 9
 		}

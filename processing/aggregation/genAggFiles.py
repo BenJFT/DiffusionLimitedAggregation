@@ -40,6 +40,7 @@ aggND = 'package agg{n}D\n' \
        '\tlastWalk int64\n' \
        '\tstate map[Point{n}D]int64\n' \
        '\tstateRadius float64\n' \
+       '\tstartRadius float64\n' \
        '\tborderRadius float64\n' \
        '\tborderRadiusInt int64\n' \
        '\ttempPoint Point{n}D\n' \
@@ -52,7 +53,8 @@ aggND = 'package agg{n}D\n' \
        '\n' \
        'func (c *cache) updateStateRadius() {{\n' \
        '\tc.stateRadius = c.pointRadius\n' \
-       '\tc.borderRadius = c.stateRadius*BORDER_SCALE + BORDER_CONST\n' \
+       '\tc.startRadius = c.stateRadius+BORDER_CONST\n' \
+       '\tc.borderRadius = c.startRadius*BORDER_SCALE\n' \
        '\tc.borderRadiusInt = int64(c.borderRadius)\n' \
        '}}\n' \
        '\n' \
@@ -63,7 +65,7 @@ aggND = 'package agg{n}D\n' \
        '\n' \
        '\n' \
        'func (c *cache) pointToBorder() {{\n' \
-       '\t{mov_border}\n' \
+       '{mov_border}\n' \
        '\tc.updateCurrPointRadius()\n' \
        '}}\n' \
        '\n' \
@@ -161,9 +163,9 @@ def get_mov_border(letters):
     ret = '\tc.tempFloatA = 1\n'
     for x in letters[:-1]:
         ret += '\tc.tempFloatB = c.rng.Float64() * 2 * math.Pi\n'
-        ret += '\tc.point.{} = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.borderRadius)\n'.format(x)
+        ret += '\tc.point.{} = int64(math.Cos(c.tempFloatB) * c.tempFloatA * c.startRadius)\n'.format(x)
         ret += '\tc.tempFloatA *= math.Sin(c.tempFloatB)\n'
-    ret += '\tc.point.{} = int64(c.tempFloatA * c.borderRadius)\n'.format(letters[-1])
+    ret += '\tc.point.{} = int64(c.tempFloatA * c.startRadius)\n'.format(letters[-1])
     return ret
 
 def get_walk_switch(letters):
@@ -171,21 +173,21 @@ def get_walk_switch(letters):
     for i, l in enumerate(letters):
         ret += '\tcase {na}:\n' \
                '\t\tc.point.{l}++\n' \
-               '\t\tif c.pointRadius < 4+c.stateRadius && c.pointIn() {{\n' \
+               '\t\tif c.pointRadius < c.startRadius && c.pointIn() {{\n' \
                '\t\t\tc.point.{l}--\n' \
                '\t\t}} else {{\n' \
                '\t\t\tif c.point.{l} > c.borderRadiusInt {{\n' \
-               '\t\t\t\tc.point.{l} -= 2*c.borderRadiusInt\n' \
+               '\t\t\t\tc.pointToBorder()\n' \
                '\t\t\t}}\n' \
                '\t\t\tc.lastWalk = {na}\n' \
                '\t\t}}\n' \
                '\tcase {nb}:\n' \
                '\t\tc.point.{l}--\n' \
-               '\t\tif c.pointRadius < 4+c.stateRadius && c.pointIn() {{\n' \
+               '\t\tif c.pointRadius < c.startRadius && c.pointIn() {{\n' \
                '\t\t\tc.point.{l}++\n' \
                '\t\t}} else {{\n' \
                '\t\t\tif c.point.{l} < -c.borderRadiusInt {{\n' \
-               '\t\t\t\tc.point.{l} += 2*c.borderRadiusInt\n' \
+               '\t\t\t\tc.pointToBorder()\n' \
                '\t\t\t}}\n' \
                '\t\t\tc.lastWalk = {nb}\n' \
                '\t\t}}\n'.format(na=i*2, nb=i*2 + 1, l=l)
@@ -224,7 +226,7 @@ def make(n: int):
     fields = {
         'n': n,
         'border_scale': 1.5,
-        'border_const': 3,
+        'border_const': 4,
         'letters': ', '.join(letters),
         'p_letters': ', '.join(map(lambda x: 'p.{}'.format(x), letters)),
         'd_letters': ', '.join(map(lambda x: 'd{}'.format(x), letters)),
