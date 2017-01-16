@@ -1,7 +1,7 @@
 package processing
 
 import (
-	//"bufio"
+	"bufio"
 	"encoding/gob"
 	"encoding/csv"
 	"fmt"
@@ -14,8 +14,7 @@ import (
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/aggregation"
 	"github.com/Benjft/DiffusionLimitedAggregation/processing/analysis"
 	"github.com/Benjft/DiffusionLimitedAggregation/util"
-	//"github.com/Benjft/DiffusionLimitedAggregation/util/drawing/svg"
-	//"github.com/Benjft/DiffusionLimitedAggregation/util/drawing/xyz"
+	"github.com/Benjft/DiffusionLimitedAggregation/util/drawing/svg"
 
 	"github.com/gonum/plot"
 	"github.com/gonum/plot/plotter"
@@ -42,35 +41,43 @@ func init() {
 	gob.Register(RunData{})
 }
 
+// Structure to hold data from a single run
 type RunData struct {
 	N, D, Seed int64
 	Stick float64
 	Points []aggregation.Point
+	radii []float64
 }
 
-func (run *RunData) FileName() string {
-	return fmt.Sprintf("N%d-D%d-Se%d-St%b", run.N, run.D, run.Seed, run.Stick)
-}
-
+// runs the simulation for the aggreagte's conditions
 func (run *RunData) Run() {
 	run.Points = aggregation.RunNew(run.N, run.Seed, run.D, run.Stick)
 }
 
-func (run *RunData) Save() (err error) {
-	var (
-		path = fmt.Sprintf("%s\\%s.save", SAVE_PATH, run.FileName())
+// loads the radii for the run
+func (run *RunData) Radii() []float64 {
+	if run.radii == nil {
+		run.radii = analysis.GyrationRadii(run.Points)
+	}
+	return run.radii
+}
 
-		file *os.File
-		encoder *gob.Encoder
-	)
+// the file name specified by the runs properties
+func (run *RunData) FileName() string {
+	return fmt.Sprintf("N%d-D%d-Se%d-St%b", run.N, run.D, run.Seed, run.Stick)
+}
 
-	file, err = os.Create(path)
+// saves the gob of the aggregate
+func (run *RunData) Save() error {
+	var path = fmt.Sprintf("%s\\%s.save", SAVE_PATH, run.FileName())
+
+	var file, err = os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	encoder = gob.NewEncoder(file)
+	var encoder = gob.NewEncoder(file)
 	err = encoder.Encode(run)
 	if err != nil {
 		return err
@@ -78,21 +85,17 @@ func (run *RunData) Save() (err error) {
 	return nil
 }
 
-func (run *RunData) Load() (err error) {
-	var (
-		path = fmt.Sprintf("%s\\%s.save", SAVE_PATH, run.FileName())
+// loads the aggregate from a gob
+func (run *RunData) Load() error {
+	var path = fmt.Sprintf("%s\\%s.save", SAVE_PATH, run.FileName())
 
-		file *os.File
-		decoder *gob.Decoder
-	)
-
-	file, err = os.Open(path)
+	var file, err = os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	decoder = gob.NewDecoder(file)
+	var decoder = gob.NewDecoder(file)
 	err = decoder.Decode(run)
 	if err != nil {
 		return err
@@ -100,40 +103,62 @@ func (run *RunData) Load() (err error) {
 	return nil
 }
 
-type Radii struct {
-	D int64
-	Stick float64
-	Radii []float64
-}
-func (run *RunData) GyrationRadii() *Radii {
-	return &Radii{run.D, run.Stick, analysis.GyrationRadii(run.Points)}
+// saves the aggregate as a csv file of it's coordinates
+func (run *RunData) CSV() error {
+	var path = fmt.Sprintf("%s\\%s.csv", DATA_PATH, run.FileName())
+
+	var file, err = os.Create(path)
+	if err != nil {
+		return err
+
+	}
+	defer file.Close()
+	var writer = csv.NewWriter(file)
+	for _, point := range run.Points {
+		var strs = make([]string, run.D)
+		for i, x := range point.Coordinates() {
+			strs[i] = strconv.FormatInt(x, 10)
+		}
+		err = writer.Write(strs)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-
+// saves the aggregate as a csv and gob
 func SaveAll(runs []*RunData) {
 	for _, run := range runs {
-		go func(run *RunData) {
+		go func() {
 			var err = run.Save()
 			if err != nil {
 				fmt.Println(err)
+				return
 			}
-		} (run)
+			err = run.CSV()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		} ()
 	}
 }
 
+// runs a single simulation with the passed parameters.
 func RunOne(n, d, seed int64, stick float64, tryLoad bool) (run *RunData) {
 	run = &RunData{N:n, D:d, Seed:seed, Stick:stick}
 
-	if tryLoad {
+	// attempts to load the run from storage if it exists. If not then runs a new one
+	switch tryLoad {
+	case true:
 		var err = run.Load()
-		if err != nil {
-			fmt.Println(err, "Load Failed. Running...")
-			run.Run()
-			fmt.Println(run.FileName(), "Finished Running.")
-		} else {
+		if err == nil{
 			fmt.Println(run.FileName(), "Loaded.")
+			break
 		}
-	} else {
+		fallthrough
+	default:
 		fmt.Println(run.FileName(), "Started Running.")
 		run.Run()
 		fmt.Println(run.FileName(), "Finished Running.")
@@ -142,32 +167,36 @@ func RunOne(n, d, seed int64, stick float64, tryLoad bool) (run *RunData) {
 	return
 }
 
+// runs a set of runs in separate concurrent processes and waits for them all to compete
 func RunMany(n, d, seed int64, stick float64, tryLoad bool, runs int64) (runData []*RunData) {
 	runData = make([]*RunData, runs)
 	var rng = rand.New(rand.NewSource(seed))
 
 	var runChannel = make(chan *RunData)
 
+	// sets each process running
 	for range runData {
 		go func (seed int64) {
 			runChannel <- RunOne(n, d, seed, stick, tryLoad)
 		} (rng.Int63())
 	}
 
+	// waits for each to finish and collects their results
 	for i := range runData {
 		runData[i] = <-runChannel
 	}
-
-	return
+	return runData
 }
 
-func VaryDimension(n, d0, d1, dStep, seed int64, stick float64, tryLoad bool, runsPer int64) (runData []*RunData) {
+// runs a set of runs for each specified dimension in a concurrent process
+func VaryDimension(n, seed int64, stick float64, tryLoad bool, runsPer int64, steps []int64) (runData []*RunData) {
 	var (
 		nPoints int64 = 0
 		runChannel = make(chan []*RunData)
 	)
 
-	for d := d0; d <= d1; d += dStep {
+	// starts each process
+	for _, d := range steps {
 		nPoints++
 		go func (d int64) {
 			runChannel <- RunMany(n, d, seed, stick, tryLoad, runsPer)
@@ -175,6 +204,7 @@ func VaryDimension(n, d0, d1, dStep, seed int64, stick float64, tryLoad bool, ru
 	}
 
 	runData = make([]*RunData, runsPer * nPoints)
+	// collects results
 	for i := int64(0); i < nPoints; i++ {
 		idx := i*runsPer
 		for j, data := range <-runChannel {
@@ -182,40 +212,28 @@ func VaryDimension(n, d0, d1, dStep, seed int64, stick float64, tryLoad bool, ru
 		}
 	}
 
-	// TODO Remove this once tested
-	for _, data := range runData {
-		if data == nil {
-			panic("Missing Data!")
-		}
-	}
-
 	return runData
 }
 
-func VarySticking(n, d, seed int64, s0, s1, sStep float64, tryLoad bool, runsPer int64) (runData []*RunData) {
+func VarySticking(n, d, seed int64, tryLoad bool, runsPer int64, steps []float64) (runData []*RunData) {
 	var (
-		nSteps = int64((s1-s0)/sStep)
+		nSteps = int64(len(steps))
 		runChannel = make(chan []*RunData)
 	)
 	runData = make([]*RunData, runsPer * nSteps)
 
-	for s := s0; s < s1; s += sStep {
+	// starts each process
+	for _, s := range steps {
 		go func (stick float64) {
 			runChannel <- RunMany(n, d, seed, stick, tryLoad, runsPer)
 		} (s)
 	}
 
+	// waits for results
 	for i := int64(0); i < nSteps; i++ {
 		idx := i*runsPer
 		for j, data := range <-runChannel {
 			runData[idx+int64(j)] = data
-		}
-	}
-
-	// TODO Remove this once tested
-	for _, data := range runData {
-		if data == nil {
-			panic("Missing Data!")
 		}
 	}
 
@@ -253,13 +271,14 @@ func meanAndConf95(vls []float64) (mean, lowerr, higherr float64) {
 	conf := 1.96 * stdev / math.Sqrt(n)
 	return mean, conf, conf
 }
-func growth(radii []*Radii, showAllCurves bool, outputRaw bool, title string) (dims, seDims float64) {
+// estimates the hausdorff dimension for the set of data
+func growth(radii []*RunData, showAllCurves bool, outputRaw bool, title string) (dims, seDims float64) {
 	var (
 		radiiVals = make([][]float64, len(radii))
 	)
 
 	for i, r := range radii {
-		radiiVals[i] = r.Radii
+		radiiVals[i] = r.Radii()
 	}
 
 	radiiVals = util.Transpose(radiiVals)
@@ -280,14 +299,16 @@ func growth(radii []*Radii, showAllCurves bool, outputRaw bool, title string) (d
 		fmt.Println(err)
 		return
 	}
+
+	var n = int(float64(len(mean95.XYs))*0.5) // last 50% off aggregates
 	regressionPoints := plotutil.ErrorPoints{
-		XYs:mean95.XYs[len(mean95.XYs)/20:],
-		XErrors:mean95.XErrors[len(mean95.XYs)/20:],
-		YErrors:mean95.YErrors[len(mean95.XYs)/20:],
+		XYs:mean95.XYs[n:],
+		XErrors:mean95.XErrors[n:],
+		YErrors:mean95.YErrors[n:],
 	}
 	var a, b, _, eb = util.WeightedLeastSquares(regressionPoints)
 	dims = 1/b
-	seDims = eb/(b*b - eb*eb)
+	seDims = eb/(b*b)
 	if showAllCurves {
 		// Draw the set of data without stopping the program
 		go func() {
@@ -358,23 +379,24 @@ func growth(radii []*Radii, showAllCurves bool, outputRaw bool, title string) (d
 
 }
 
-func growthWithStick(radii []*Radii, showAllCurves, outputRaw, showTrend bool, title string)  {
+// finds the hausdorff dimension for each different value of sticking probability
+func growthWithStick(radii []*RunData, showAllCurves, outputRaw, showTrend bool, title string)  {
 	type elem struct {
 		s, dims, errDims float64
 	}
 
-	var data = make(map[float64][]*Radii)
+	var data = make(map[float64][]*RunData)
 	for _, r := range radii {
 		if a, ok := data[r.Stick]; ok {
 			data[r.Stick] = append(a, r)
 		} else {
-			data[r.Stick] = []*Radii{r}
+			data[r.Stick] = []*RunData{r}
 		}
 	}
 
 	var elemChannel = make(chan elem)
 	for s, R := range data {
-		go func (s float64, R []*Radii) {
+		go func (s float64, R []*RunData) {
 			var title = fmt.Sprintf("PLT_D%d_S%b", R[0].D, R[0].Stick)
 			var dims, seDims = growth(R, showAllCurves, outputRaw, title)
 			elemChannel <- elem{dims:dims, errDims:seDims, s:s}
@@ -388,7 +410,7 @@ func growthWithStick(radii []*Radii, showAllCurves, outputRaw, showTrend bool, t
 	}
 	for i := range points.XYs {
 		var d = <- elemChannel
-		points.XYs[i].X = d.s
+		points.XYs[i].X = math.Log(d.s)
 		points.XYs[i].Y = d.dims
 		points.YErrors[i].High = d.errDims
 		points.YErrors[i].Low = d.errDims
@@ -403,8 +425,8 @@ func growthWithStick(radii []*Radii, showAllCurves, outputRaw, showTrend bool, t
 			plotutil.AddScatters(plt, points)
 			plotutil.AddYErrorBars(plt, points)
 
-			plt.X.Label.Text = "Sticking Probability"
-			plt.Y.Label.Text = "Hausdorff Dimension"
+			plt.X.Label.Text = "Log(S)"
+			plt.Y.Label.Text = "D"
 
 			var path = fmt.Sprintf("%s\\%s.pdf", PLOT_PATH, title)
 			plt.Save(8*vg.Inch, 5.66*vg.Inch, path)
@@ -436,24 +458,25 @@ func growthWithStick(radii []*Radii, showAllCurves, outputRaw, showTrend bool, t
 	}
 }
 
-func growthWithDims(radii []*Radii, showAllCurves, outputRaw, showTrend bool, title string)  {
+// finds the hausdorff dimension for each different value of D
+func growthWithDims(radii []*RunData, showAllCurves, outputRaw, showTrend bool, title string)  {
 	type elem struct {
 		dims, errDims float64
 		D int64
 	}
 
-	var data = make(map[int64][]*Radii)
+	var data = make(map[int64][]*RunData)
 	for _, r := range radii {
 		if a, ok := data[r.D]; ok {
 			data[r.D] = append(a, r)
 		} else {
-			data[r.D] = []*Radii{r}
+			data[r.D] = []*RunData{r}
 		}
 	}
 
 	var elemChannel = make(chan elem)
 	for D, R := range data {
-		go func (D int64, R []*Radii) {
+		go func (D int64, R []*RunData) {
 			var title = fmt.Sprintf("PLT_D%d_S%b", R[0].D, R[0].Stick)
 			var dims, seDims = growth(R, showAllCurves, outputRaw, title)
 			elemChannel <- elem{dims:dims, errDims:seDims, D:D}
@@ -483,11 +506,14 @@ func growthWithDims(radii []*Radii, showAllCurves, outputRaw, showTrend bool, ti
 			plotutil.AddYErrorBars(plt, points)
 
 			var dEqD = plotter.NewFunction(func (x float64) float64 {return x})
-			var dEqDs2 = plotter.NewFunction(func (x float64) float64 {return x-2})
+			var dEqDs2 = plotter.NewFunction(func (x float64) float64 {return x-1})
+			var TK = plotter.NewFunction(func (x float64) float64 {return (x*x+1)/(x+1)})
 			dEqDs2.Dashes = []vg.Length{4*vg.Millimeter}
-			plt.Add(dEqD, dEqDs2)
-			plt.Legend.Add("d=D", dEqD)
-			plt.Legend.Add("d=D-2", dEqDs2)
+			TK.Color = color.RGBA{A:255, B:255}
+			plt.Add(dEqD, dEqDs2, TK)
+			plt.Legend.Add("Upper bound D=d", dEqD)
+			plt.Legend.Add("Causality relationsip D=d-1", dEqDs2)
+			plt.Legend.Add("TK Model for growth", TK)
 
 			plt.X.Label.Text = "Spatial Dimension"
 			plt.Y.Label.Text = "Hausdorff Dimension"
@@ -522,11 +548,9 @@ func growthWithDims(radii []*Radii, showAllCurves, outputRaw, showTrend bool, ti
 	}
 }
 
+// finds the hausdorff dimension and sepeates based on varied parameters
 func GrowthRate(runData []*RunData, showAllCurves, outputRaw, showTrend bool) {
 	var (
-		radiiChannel = make(chan *Radii)
-		radii = make([]*Radii, len(runData))
-
 		minD = int64(math.MaxInt64)
 		maxD = int64(math.MinInt64)
 		D = map[int64]bool{}
@@ -546,19 +570,11 @@ func GrowthRate(runData []*RunData, showAllCurves, outputRaw, showTrend bool) {
 		if data.Stick < minS {
 			minS = data.Stick
 		}
-		if data.Stick < maxS {
+		if data.Stick > maxS {
 			maxS = data.Stick
 		}
 		D[data.D]=true
 		S[data.Stick]=true
-
-		go func(data *RunData) {
-			radiiChannel <- data.GyrationRadii()
-		} (data)
-	}
-
-	for i := range radii {
-		radii[i] = <-radiiChannel
 	}
 
 	var nData = len(D)*len(S)
@@ -567,15 +583,42 @@ func GrowthRate(runData []*RunData, showAllCurves, outputRaw, showTrend bool) {
 		panic("This should not be possible!")
 	} else if maxD > minD {
 		var title = fmt.Sprintf("PLT_D%d-to%d-N%d_S%b", minD, maxD, nData, minS)
-		growthWithDims(radii, showAllCurves, outputRaw, showTrend, title)
+		growthWithDims(runData, showAllCurves, outputRaw, showTrend, title)
 	} else if maxS > minS {
 		var title = fmt.Sprintf("PLT_D%d_S%b-to%b-N%b", minD, minS, maxS, nData)
-		growthWithStick(radii, showAllCurves, outputRaw, showTrend, title)
+		growthWithStick(runData, showAllCurves, outputRaw, showTrend, title)
 	} else {
 		var title = fmt.Sprintf("PLT_D%d_S%b", minD, minS)
-		var d, errD = growth(radii, showAllCurves, outputRaw, title)
+		var d, errD = growth(runData, showAllCurves, outputRaw, title)
 		fmt.Printf("d = %.3f \u00b1 %.3f\n", d, errD*1.96)
 	}
 
 
+}
+
+// draws 2D aggregates to svg files
+func Draw(runData []*RunData) {
+	for _, run := range runData {
+		go func(run *RunData) {
+			if run.D != 2 {
+				return
+			}
+
+			var path = fmt.Sprintf("%s\\%s.svg", DRAW_PATH, run.FileName())
+			var file, err = os.Create(path)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			defer file.Close()
+
+			var writer = bufio.NewWriter(file)
+			_, err = writer.Write([]byte(svg.DrawAggregate(run.Points)))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			open.Run(path)
+		} (run)
+	}
 }

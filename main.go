@@ -1,47 +1,26 @@
+/*
+Handles user input and passes tasks off to be dealt with
+ */
+
 package main
 
 import (
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"runtime"
 	"strings"
+	"strconv"
 
 	"github.com/Benjft/DiffusionLimitedAggregation/processing"
 	"github.com/Benjft/DiffusionLimitedAggregation/util"
 )
 
 var data []*processing.RunData
-func runOnce(args []string) []string {
-	var flagSet = flag.NewFlagSet("runonce", flag.ContinueOnError)
-	var (
-		n, d, seed int64
-		stick float64
-		tryLoad bool
-	)
-
-	flagSet.Int64Var(&n, "npoints", 5000, "The number of points desired in the final aggregate")
-	flagSet.Int64Var(&d, "dimensions", 2, "The number of dimensions for the space of the simulation")
-	flagSet.Int64Var(&seed, "seed", 1, "The seet to be input to the random number generator")
-
-	flagSet.Float64Var(&stick, "pstick", 1, "The probability a point will stick to a neighboring filled site")
-
-	flagSet.BoolVar(&tryLoad, "load", false, "Load the result if it has been found before for the specific config")
-
-	var err = flagSet.Parse(args)
-
-	if err != nil {
-		fmt.Println(err)
-		return []string{}
-	}
-	data = []*processing.RunData {
-		processing.RunOne(n, d, seed, stick, tryLoad),
-	}
-
-	return flagSet.Args()
-}
+// runs a set of simulations with the same parameters
 func runMany(args []string) []string {
-	var flagSet = flag.NewFlagSet("runmany", flag.ContinueOnError)
+	var flagSet = flag.NewFlagSet("run", flag.ContinueOnError)
 	var (
 		n, d, seed, runs int64
 		stick float64
@@ -67,6 +46,7 @@ func runMany(args []string) []string {
 
 	return flagSet.Args()
 }
+// saves the aggregates in csv form
 func save(args []string) []string {
 	var flagSet = flag.NewFlagSet("save", flag.ContinueOnError)
 
@@ -81,6 +61,7 @@ func save(args []string) []string {
 	}
 	return flagSet.Args()
 }
+// runs multiple simulations with a varying value for d
 func varyDimension(args []string) []string {
 	var flagSet = flag.NewFlagSet("varydimension", flag.ContinueOnError)
 	var (
@@ -89,9 +70,9 @@ func varyDimension(args []string) []string {
 		tryLoad bool
 	)
 	flagSet.Int64Var(&n, "npoints", 5000, "The number of points desired in the final aggregate")
-	flagSet.Int64Var(&d0, "start", 1, "The lowest number of dimensions to simulate (inclusive)")
+	flagSet.Int64Var(&d0, "start", 2, "The lowest number of dimensions to simulate (inclusive)")
 	flagSet.Int64Var(&d1, "stop", 6, "The highest number of dimensions to simulate (inclusive)")
-	flagSet.Int64Var(&dStep, "step", 1, "The gap between simulations")
+	flagSet.Int64Var(&dStep, "step", 1, "The gap between simulations (0 to read values from tail)")
 	flagSet.Int64Var(&seed, "seed", 1, "The seed to be input to the random number generator. Generates seeds for" +
 		" each individual run so each change generates a complete new set.")
 	flagSet.Int64Var(&runsPer, "runs", 32, "The number of simulations to be run for each value of d")
@@ -106,27 +87,61 @@ func varyDimension(args []string) []string {
 		return []string{}
 	}
 
-	data = processing.VaryDimension(n, d0, d1, dStep, seed, stick, tryLoad, runsPer)
+	var steps []int64= []int64{}
+	var tail = flagSet.Args()
+	if dStep == 0 {
+		for _, arg := range tail {
+			i, err := strconv.Atoi(arg)
+			if err != nil {
+				break
+			}
+			steps = append(steps, int64(i))
+		}
+		tail = tail[len(steps):]
+	} else {
+		steps = []int64{}
+
+		if a, err := strconv.Atoi(tail[0]); err == nil {
+			d1 = int64(a)
+			tail = tail[1:]
+			if b, err := strconv.Atoi(tail[0]); err == nil {
+				d0 = d1
+				d1 = int64(b)
+				tail = tail[1:]
+			}
+		}
+
+		if math.Signbit(float64(dStep)) != math.Signbit(float64(d1-d0)) {
+			fmt.Println("Wrong sign on step")
+			return []string{}
+		}
+
+		for d := d0; d <= d1; d += dStep {
+			steps = append(steps, d)
+		}
+	}
+
+	data = processing.VaryDimension(n, seed, stick, tryLoad, runsPer, steps)
 	return flagSet.Args()
 }
+// runs several sets of simulations with the specified range of
 func varySticking(args []string) []string {
 	var flagSet = flag.NewFlagSet("varysticking", flag.ContinueOnError)
 	var (
 		n, d, seed, runsPer int64
-		s0, s1, sStep float64
+		s0, s1 float64 = 0.1, 1
+		sStep float64
 		tryLoad bool
 	)
-	flagSet.Int64Var(&n, "-npoints", 5000, "The number of points desired in the final aggregate")
-	flagSet.Int64Var(&d, "-dimensions", 2, "The number of dimensions for the space of the simulation")
-	flagSet.Int64Var(&seed, "-seed", 1, "The seed to be input to the random number generator. Generates seeds for" +
+	flagSet.Int64Var(&n, "npoints", 5000, "The number of points desired in the final aggregate")
+	flagSet.Int64Var(&d, "dimensions", 2, "The number of dimensions for the space of the simulation")
+	flagSet.Int64Var(&seed, "seed", 1, "The seed to be input to the random number generator. Generates seeds for" +
 		" each individual run so each change generates a complete new set.")
-	flagSet.Int64Var(&runsPer, "-runs", 32, "The number of simulations to be run for each value of d")
+	flagSet.Int64Var(&runsPer, "runs", 32, "The number of simulations to be run for each value of d")
 
-	flagSet.Float64Var(&s0, "-start", .1, "The lowest probability a point will stick to a neighboring filled site")
-	flagSet.Float64Var(&s1, "-stop", 1, "The highest probability a point will stick to a neighboring filled site")
-	flagSet.Float64Var(&sStep, "-step", .1, "The gap between simulations")
+	flagSet.Float64Var(&sStep, "step", .1, "The gap between simulations (0 to read a list of values from tail) setting upper and lower bounds specified in the tail")
 
-	flagSet.BoolVar(&tryLoad, "-load", false, "Load the result if it has been found before for the specific config")
+	flagSet.BoolVar(&tryLoad, "load", false, "Load the result if it has been found before for the specific config")
 
 	var err = flagSet.Parse(args)
 	if err != nil {
@@ -134,9 +149,46 @@ func varySticking(args []string) []string {
 		return []string{}
 	}
 
-	data = processing.VarySticking(n, d, seed, s0, s1, sStep, tryLoad, runsPer)
-	return flagSet.Args()
+	var steps []float64
+	var tail = flagSet.Args()
+	if sStep <= 0 {
+		steps = []float64{}
+		for _, arg := range tail {
+			f, err := strconv.ParseFloat(arg, 64)
+			if err != nil {
+				break
+			}
+			steps = append(steps, f)
+		}
+		tail = tail[len(steps):]
+	} else {
+		steps = []float64{}
+
+		if a, err := strconv.ParseFloat(tail[0], 64); err == nil {
+			s1 = a
+			tail = tail[1:]
+			if b, err := strconv.ParseFloat(tail[0], 64); err == nil {
+				s0 = s1
+				s1 = b
+				tail = tail[1:]
+			}
+		}
+
+		if math.Signbit(sStep) != math.Signbit(s1-s0) {
+			fmt.Println("Wrong sign on step")
+			return []string{}
+		}
+
+		for s := s0; s <= s1; s += sStep {
+			steps = append(steps, s)
+		}
+	}
+
+	data = processing.VarySticking(n, d, seed, tryLoad, runsPer, steps)
+	return tail
 }
+
+// finds the hausdorff dimensions using the growth rate
 func growth(args []string) []string {
 	var flagSet = flag.NewFlagSet("growth", flag.ContinueOnError)
 	var (
@@ -159,17 +211,35 @@ func growth(args []string) []string {
 	return flagSet.Args()
 }
 
+// draws the loaded agreagtes as svg images
+func draw(args []string) []string {
+	var flagSet = flag.NewFlagSet("draw", flag.ContinueOnError)
+
+
+	var err = flagSet.Parse(args)
+	if err != nil {
+		fmt.Println(err)
+		return []string{}
+	}
+	if data != nil {
+		processing.Draw(data)
+	}
+	return flagSet.Args()
+}
+
+// stores the set of valid instructions
 var (
 	handles = map[string]func([]string) []string{
-		"runone": runOnce,
-		"runmany": runMany,
+		"run": runMany,
 		"save": save,
 		"varydimension": varyDimension,
 		"varysticking": varySticking,
 		"growth": growth,
+		"draw": draw,
 	}
 )
 
+// handles which instruction is being called
 func handleArgs(args []string) bool {
 	var head string
 	var tail []string
@@ -195,6 +265,7 @@ func handleArgs(args []string) bool {
 			for k := range handles {
 				fmt.Println("\t" + k)
 			}
+			fmt.Println("Use -h flag for specific help")
 			return true
 		}
 	}
@@ -206,6 +277,7 @@ func handleInstructions(instructions string) bool {
 	return handleArgs(args)
 }
 
+// waits for input then passes any input off to a handler
 func mainLoop() {
 	fmt.Print(">>")
 
