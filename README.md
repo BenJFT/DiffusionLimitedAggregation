@@ -35,11 +35,11 @@ ___
 `varysticking -npoints=5000 -dimensions=2 -seed=1 -runs=32 -load=false -step=0.1 0.1 1.0`  
 Runs the simulation multiple times, varying the sticking probability as it does so. Runs are kept in memory, and are overwritten by any future run commnnd. The flags effect it as follows:
 
-`-npoints_** changes the number points that will be included in the final aggregate.  
-`-dimensions_** changes the number of spatial dimensions in which the simulation will run. Can be set arbitrarily high.  
-`-seed_** changes the random number seed used to generate new runs.  
-`-runs_** causes the simulation to run multiple times with different seeds (generated from the passed seed).  
-`-load_** If a simulation has been run with the same parameters it will try to load it from the disk to save time.  
+`-npoints` changes the number points that will be included in the final aggregate.  
+`-dimensions` changes the number of spatial dimensions in which the simulation will run. Can be set arbitrarily high.  
+`-seed` changes the random number seed used to generate new runs.  
+`-runs` causes the simulation to run multiple times with different seeds (generated from the passed seed).  
+`-load` If a simulation has been run with the same parameters it will try to load it from the disk to save time.  
 `-step` Sets the gap between sticking probabilities specified in the tail. If this is *>0* it will use point between the two point specified in the tail.
 If instead it is *0* it will use a whole list of numbers from the tail. (i.e _-step=0 0.1 0.4 0.5 0.7 1_ would run the simulation for sticking probabilities of 0.1, 0.4, 0.5, 0.7, and 1)
 ___
@@ -53,7 +53,7 @@ ___
 `draw`  
 Draws any loaded 2D aggregates as svg files with hue showing the order in which particles were added to the aggregate.
 ___
-###Example Uses
+### Example Uses
 
 `varysticking -npoints=10000 -runs=1 -load=true -step=0 0.001 0.01 0.1 1.0 save draw`  
 Runs the simulation once for each of sticking values 0.001 0.01 0.1 1.0 then draws each to an svg file.
